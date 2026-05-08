@@ -3,3 +3,5 @@ data/
 *.tmp
 __pycache__/
 *.pyc
+config.json
+parties.json
