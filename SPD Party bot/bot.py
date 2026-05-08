@@ -9,11 +9,11 @@ from typing import Any, Dict, Optional, Tuple
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 
 # ============================================================
-# Data files
+# Arquivos / dados
 # ============================================================
 
 DATA_DIR = Path(os.getenv("DATA_DIR") or Path(__file__).parent)
@@ -31,7 +31,11 @@ DEFAULT_GUILD_CONFIG = {
     "everyone_can_create": False,
     "ping_everyone": True,
     "language": "pt-BR",
-    "timezone_offset_minutes": -180,
+    "timezone_offset_minutes": -180,  # UTC-3 por padrão
+    "auto_close_enabled": True,
+    "auto_close_after_hours": 6,
+    "reminder_enabled": True,
+    "reminder_minutes": 15,
 }
 
 DEFAULT_CONFIG = {
@@ -46,7 +50,7 @@ SUPPORTED_LANGUAGES = {
 
 
 def save_json(path: Path, data):
-    """Save JSON atomically to reduce the risk of corrupted files."""
+    """Salva JSON de forma atômica para reduzir risco de corromper o arquivo."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
 
@@ -76,7 +80,7 @@ def load_json(path: Path, default):
                 data[key] = deepcopy(value)
                 changed = True
 
-        # Migrate legacy single-server config to per-server config.
+        # Migração automática da versão antiga, que usava um servidor só.
         old_guild_id = int(data.get("guild_id", 0) or 0) if "guild_id" in data else 0
         if old_guild_id:
             guild_key = str(old_guild_id)
@@ -114,7 +118,7 @@ parties: Dict[str, Any] = load_json(PARTIES_PATH, {})
 
 
 # ============================================================
-# Localization
+# I18N
 # ============================================================
 
 I18N = {
@@ -235,6 +239,10 @@ I18N = {
         "role_staff": "Cargo Staff",
         "everyone_create": "Todos podem criar party",
         "ping_everyone": "Marcar @everyone ao criar",
+        "auto_close": "Encerrar parties automaticamente",
+        "auto_close_after": "Encerrar após",
+        "reminders": "Lembretes automáticos",
+        "reminder_before": "Lembrar antes",
         "embed_color": "Cor do embed",
         "language": "Idioma",
         "timezone": "Fuso horário",
@@ -275,6 +283,10 @@ I18N = {
         "normal_text_channel_only": "Use esse comando em um canal de texto normal.",
         "config_command_desc": "Abre o painel de configuração do Party Bot neste servidor.",
         "clean_done": "Limpeza concluída. Removidas: **{count}** parties encerradas.",
+        "party_reminder": "⏰ A party **{title}** começa {relative}!\n{mentions}\n{url}",
+        "party_auto_closed_end": "🔒 A party **{title}** foi encerrada automaticamente porque o horário terminou.",
+        "party_auto_closed_timeout": "🔒 A party **{title}** foi encerrada automaticamente por tempo ativo excedido.",
+        "log_party_auto_closed": "🔒 Party **{title}** `{party_id}` encerrada automaticamente.",
     },
     "en-US": {
         "hub_title": "🎮 Party Hub — SPD",
@@ -393,6 +405,10 @@ I18N = {
         "role_staff": "Staff role",
         "everyone_create": "Everyone can create parties",
         "ping_everyone": "Mention @everyone on creation",
+        "auto_close": "Automatically close parties",
+        "auto_close_after": "Close after",
+        "reminders": "Automatic reminders",
+        "reminder_before": "Remind before",
         "embed_color": "Embed color",
         "language": "Language",
         "timezone": "Timezone",
@@ -433,6 +449,10 @@ I18N = {
         "normal_text_channel_only": "Use this command in a normal text channel.",
         "config_command_desc": "Open this server's Party Bot configuration panel.",
         "clean_done": "Cleanup complete. Removed **{count}** closed parties.",
+        "party_reminder": "⏰ Party **{title}** starts {relative}!\n{mentions}\n{url}",
+        "party_auto_closed_end": "🔒 Party **{title}** was automatically closed because its scheduled time ended.",
+        "party_auto_closed_timeout": "🔒 Party **{title}** was automatically closed because it has been active for too long.",
+        "log_party_auto_closed": "🔒 Party **{title}** `{party_id}` was automatically closed.",
     },
 }
 
@@ -454,12 +474,12 @@ def tr(guild_id: Optional[int], key: str, **kwargs) -> str:
 
 
 # ============================================================
-# Configuration and persistence
+# Config / persistência
 # ============================================================
 
 
 def normalize_parties():
-    """Migrate old party data to the current internal format."""
+    """Migra parties antigas para o formato interno atual sem quebrar o bot."""
     changed = False
 
     for party_id, data in list(parties.items()):
@@ -504,6 +524,9 @@ def normalize_parties():
         data.setdefault("description", "")
         data.setdefault("time", "")
         data.setdefault("image_url", "")
+        if "reminder_sent" not in data:
+            data["reminder_sent"] = False
+            changed = True
 
     if changed:
         save_json(PARTIES_PATH, parties)
@@ -577,7 +600,7 @@ def guild_id_from_interaction(interaction: discord.Interaction) -> Optional[int]
 
 
 # ============================================================
-# Permissions and utilities
+# Permissões / utilitários
 # ============================================================
 
 
@@ -779,7 +802,16 @@ def format_timezone_offset(minutes: int) -> str:
 
 
 def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, bool]:
-    """Parse simple time formats and return: raw_text, start_ts, end_ts, parsed."""
+    """
+    Interpreta formatos simples:
+    - hoje 18:30
+    - amanhã 19:00 - 21:00
+    - 08/05/2026 18:30
+    - 08/05/2026 18:30 - 20:30
+    - 08/05/2026 18:30 - 09/05/2026 01:00
+
+    Retorna: (texto_original, start_ts, end_ts, parsed)
+    """
     text = (raw or "").strip()
     if not text:
         return "", 0, 0, False
@@ -788,7 +820,7 @@ def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, 
     now_local = datetime.now(tz)
     lowered = text.lower().strip()
 
-    # Split time ranges without breaking dates that use dd/mm/yyyy.
+    # Separador de intervalo. Evita quebrar datas por hífen porque usamos dd/mm/yyyy.
     start_part = text
     end_part = ""
     if " - " in text:
@@ -812,7 +844,7 @@ def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, 
             date_base = (now_local + timedelta(days=1)).date()
             p = re.sub(r"^(amanhã|amanha|tomorrow)\s+", "", p, flags=re.IGNORECASE)
 
-        # dd/mm/yyyy hh:mm or dd/mm hh:mm
+        # dd/mm/yyyy hh:mm ou dd/mm hh:mm
         match = re.search(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\s+(\d{1,2}):(\d{2})", p)
         if match:
             day, month, year, hour, minute = match.groups()
@@ -833,14 +865,14 @@ def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, 
             except ValueError:
                 return None
 
-        # hh:mm only: assume today unless today/tomorrow was provided.
+        # somente hh:mm: assume hoje, ou data_base se veio hoje/amanhã
         match = re.search(r"(\d{1,2}):(\d{2})", p)
         if match:
             hour, minute = match.groups()
             base = date_base or now_local.date()
             try:
                 dt = datetime(base.year, base.month, base.day, int(hour), int(minute), tzinfo=tz)
-                # If only the time was provided and it already passed, assume tomorrow.
+                # Se o usuário digitou só hora e já passou muito, assume amanhã.
                 if date_base is None and dt < now_local - timedelta(hours=2):
                     dt += timedelta(days=1)
                 return dt
@@ -854,7 +886,7 @@ def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, 
             return None
         parsed = parse_start(part)
         if parsed:
-            # If the end has only a time, align it with the start date.
+            # Se o fim tem só hora, parse_start pode assumir hoje. Ajusta para dia do início.
             if not re.search(r"\d{1,2}/\d{1,2}|\d{4}-\d{1,2}-\d{1,2}|amanh|tomorrow|today|hoje", part, re.I):
                 parsed = parsed.replace(year=start_dt.year, month=start_dt.month, day=start_dt.day)
             if parsed <= start_dt:
@@ -994,7 +1026,7 @@ async def update_party_message(party_id: str):
 
 
 # ============================================================
-# Hub and party views
+# Views do Hub e Party
 # ============================================================
 
 
@@ -1002,7 +1034,8 @@ class HubView(discord.ui.View):
     def __init__(self, guild_id: Optional[int] = None):
         super().__init__(timeout=None)
 
-        # Localize labels when sending/editing the Hub. The on_ready instance only keeps persistent custom IDs.
+        # Ajusta os labels do Hub conforme o idioma do servidor quando o Hub é criado/editado.
+        # A instância registrada no on_ready continua sem guild_id apenas para manter os custom_id persistentes.
         self.create_party.label = tr(guild_id, "create_party")
         self.list_parties.label = tr(guild_id, "list_parties")
         self.my_parties.label = tr(guild_id, "my_parties")
@@ -1171,6 +1204,7 @@ class CreatePartyModal(discord.ui.Modal):
             "start_ts": start_ts,
             "end_ts": end_ts,
             "created_ts": int(datetime.now(timezone.utc).timestamp()),
+            "reminder_sent": False,
             "description": str(self.description.value).strip(),
             "image_url": image,
             "accepted": [member.id],
@@ -1259,6 +1293,7 @@ class EditPartyModal(discord.ui.Modal):
         data["time"] = time_text
         data["start_ts"] = start_ts
         data["end_ts"] = end_ts
+        data["reminder_sent"] = False if start_ts else data.get("reminder_sent", False)
         data["description"] = str(self.description.value).strip()
         data["image_url"] = image
 
@@ -1324,7 +1359,8 @@ class PartyView(discord.ui.View):
     def __init__(self, disabled: bool = False, guild_id: Optional[int] = None):
         super().__init__(timeout=None)
 
-        # Localize labels when sending/editing party messages. The on_ready instance only keeps persistent custom IDs.
+        # Ajusta os labels dos botões conforme o idioma do servidor quando a mensagem é criada/editada.
+        # A instância registrada no on_ready continua sem guild_id apenas para manter os custom_id persistentes.
         self.accepted_button.label = tr(guild_id, "btn_going")
         self.tentative_button.label = tr(guild_id, "btn_maybe")
         self.declined_button.label = tr(guild_id, "btn_no")
@@ -1464,7 +1500,7 @@ class PartyView(discord.ui.View):
 
 
 # ============================================================
-# Configuration panel
+# Config panel
 # ============================================================
 
 
@@ -1523,9 +1559,15 @@ async def make_config_embed(guild: discord.Guild) -> discord.Embed:
 
     yes = tr(guild_id, "yes")
     no = tr(guild_id, "no")
+    auto_close_hours = int(guild_conf.get("auto_close_after_hours", 6) or 6)
+    reminder_minutes = int(guild_conf.get("reminder_minutes", 15) or 15)
     behavior = (
         f"**{tr(guild_id, 'everyone_create')}:** `{'sim' if guild_conf.get('everyone_can_create') else 'não'}`\n"
-        f"**{tr(guild_id, 'ping_everyone')}:** `{'sim' if guild_conf.get('ping_everyone') else 'não'}`"
+        f"**{tr(guild_id, 'ping_everyone')}:** `{'sim' if guild_conf.get('ping_everyone') else 'não'}`\n"
+        f"**{tr(guild_id, 'auto_close')}:** `{'sim' if guild_conf.get('auto_close_enabled', True) else 'não'}`\n"
+        f"**{tr(guild_id, 'auto_close_after')}:** `{auto_close_hours}h`\n"
+        f"**{tr(guild_id, 'reminders')}:** `{'sim' if guild_conf.get('reminder_enabled', True) else 'não'}`\n"
+        f"**{tr(guild_id, 'reminder_before')}:** `{reminder_minutes}min`"
     )
     if lang_for_guild(guild_id) == "en-US":
         behavior = behavior.replace("`sim`", f"`{yes}`").replace("`não`", f"`{no}`")
@@ -1748,7 +1790,7 @@ class ConfigPanelView(discord.ui.View):
     def __init__(self, guild_id: Optional[int]):
         super().__init__(timeout=300)
         self.guild_id = guild_id
-        # Localized panel labels.
+        # Labels traduzidas no painel.
         self.channels_button.label = "Canais" if lang_for_guild(guild_id) == "pt-BR" else "Channels"
         self.roles_button.label = "Cargos" if lang_for_guild(guild_id) == "pt-BR" else "Roles"
         self.behavior_button.label = "Comportamento" if lang_for_guild(guild_id) == "pt-BR" else "Behavior"
@@ -1907,6 +1949,8 @@ class BehaviorConfigView(discord.ui.View):
         self.guild_id = guild_id
         self.toggle_everyone_can_create.label = tr(guild_id, "everyone_create")
         self.toggle_ping_everyone.label = tr(guild_id, "ping_everyone")
+        self.toggle_auto_close.label = tr(guild_id, "auto_close")
+        self.toggle_reminders.label = tr(guild_id, "reminders")
         self.back.label = tr(guild_id, "back")
 
     @discord.ui.button(label="Todos podem criar", emoji="👥", style=discord.ButtonStyle.secondary, row=0)
@@ -1927,7 +1971,25 @@ class BehaviorConfigView(discord.ui.View):
         set_guild_config_value(interaction.guild_id, "ping_everyone", new_value)
         await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=BehaviorConfigView(interaction.guild.id))
 
-    @discord.ui.button(label="Voltar", emoji="↩️", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="Encerrar automaticamente", emoji="🔒", style=discord.ButtonStyle.secondary, row=1)
+    async def toggle_auto_close(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+        guild_conf = get_guild_config(interaction.guild_id)
+        new_value = not bool(guild_conf.get("auto_close_enabled", True))
+        set_guild_config_value(interaction.guild_id, "auto_close_enabled", new_value)
+        await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=BehaviorConfigView(interaction.guild.id))
+
+    @discord.ui.button(label="Lembretes automáticos", emoji="⏰", style=discord.ButtonStyle.secondary, row=1)
+    async def toggle_reminders(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+        guild_conf = get_guild_config(interaction.guild_id)
+        new_value = not bool(guild_conf.get("reminder_enabled", True))
+        set_guild_config_value(interaction.guild_id, "reminder_enabled", new_value)
+        await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=BehaviorConfigView(interaction.guild.id))
+
+    @discord.ui.button(label="Voltar", emoji="↩️", style=discord.ButtonStyle.secondary, row=2)
     async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
         if await reject_if_not_staff(interaction):
             return
@@ -1968,8 +2030,107 @@ class AppearanceConfigView(discord.ui.View):
         await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=ConfigPanelView(interaction.guild.id))
 
 
+
 # ============================================================
-# Events and slash commands
+# Automatic reminders / expiration
+# ============================================================
+
+
+def party_jump_url(data: Dict[str, Any]) -> str:
+    guild_id = int(data.get("guild_id", 0) or 0)
+    channel_id = int(data.get("channel_id", 0) or 0)
+    message_id = int(data.get("message_id", 0) or 0)
+    if guild_id and channel_id and message_id:
+        return f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
+    return ""
+
+
+def party_participant_mentions(data: Dict[str, Any]) -> str:
+    user_ids = []
+    for key in ("accepted", "tentative"):
+        for user_id in data.get(key, []):
+            if user_id not in user_ids:
+                user_ids.append(user_id)
+    if not user_ids:
+        return ""
+    return " ".join(f"<@{user_id}>" for user_id in user_ids[:40])
+
+
+async def send_party_channel_message(data: Dict[str, Any], content: str, mention_users: bool = False):
+    channel = await fetch_messageable_channel(int(data.get("channel_id", 0) or 0))
+    if not channel:
+        return
+    try:
+        await channel.send(content, allowed_mentions=discord.AllowedMentions(users=mention_users, everyone=False, roles=False))
+    except discord.HTTPException:
+        pass
+
+
+async def auto_close_party(party_id: str, data: Dict[str, Any], reason_key: str):
+    if data.get("status") != "open":
+        return
+    guild_id = int(data.get("guild_id", 0) or 0)
+    data["status"] = "closed"
+    data["auto_closed"] = True
+    save_parties()
+    await update_party_message(party_id)
+    await send_party_channel_message(data, tr(guild_id, reason_key, title=data.get("title", "Party")))
+    guild = bot.get_guild(guild_id)
+    await log_action(guild, tr(guild_id, "log_party_auto_closed", title=data.get("title", "Party"), party_id=party_id))
+
+
+@tasks.loop(seconds=60)
+async def party_maintenance_loop():
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    changed = False
+
+    for party_id, data in list(parties.items()):
+        if not isinstance(data, dict) or data.get("status") != "open":
+            continue
+
+        guild_id = int(data.get("guild_id", 0) or 0)
+        guild_conf = get_guild_config(guild_id)
+        start_ts = int(data.get("start_ts", 0) or 0)
+        end_ts = int(data.get("end_ts", 0) or 0)
+
+        if guild_conf.get("reminder_enabled", True) and start_ts and not data.get("reminder_sent", False):
+            reminder_minutes = int(guild_conf.get("reminder_minutes", 15) or 15)
+            reminder_ts = start_ts - max(1, reminder_minutes) * 60
+            if reminder_ts <= now_ts < start_ts:
+                mentions = party_participant_mentions(data)
+                url = party_jump_url(data)
+                content = tr(
+                    guild_id,
+                    "party_reminder",
+                    title=data.get("title", "Party"),
+                    relative=discord_relative(start_ts),
+                    mentions=mentions,
+                    url=url,
+                )
+                await send_party_channel_message(data, content, mention_users=True)
+                data["reminder_sent"] = True
+                changed = True
+
+        if guild_conf.get("auto_close_enabled", True):
+            if end_ts and now_ts >= end_ts:
+                await auto_close_party(party_id, data, "party_auto_closed_end")
+                continue
+            if start_ts and not end_ts:
+                auto_close_hours = int(guild_conf.get("auto_close_after_hours", 6) or 6)
+                if now_ts >= start_ts + max(1, auto_close_hours) * 3600:
+                    await auto_close_party(party_id, data, "party_auto_closed_timeout")
+                    continue
+
+    if changed:
+        save_parties()
+
+
+@party_maintenance_loop.before_loop
+async def before_party_maintenance_loop():
+    await bot.wait_until_ready()
+
+# ============================================================
+# Eventos / slash commands
 # ============================================================
 
 
@@ -1981,18 +2142,25 @@ async def on_ready():
     bot.add_view(HubView())
     bot.add_view(PartyView())
 
+    if not party_maintenance_loop.is_running():
+        party_maintenance_loop.start()
+        print("Loop de manutenção de parties iniciado.")
+
     if _commands_synced:
         return
 
     try:
-        # Clear legacy guild-specific commands created by older versions.
+        # Sempre limpa comandos antigos específicos de servidor.
+        # Eles foram criados nas versões antigas com guild=discord.Object(...).
         for guild in bot.guilds:
             bot.tree.clear_commands(guild=discord.Object(id=guild.id))
             await bot.tree.sync(guild=discord.Object(id=guild.id))
             print(f"Comandos antigos de servidor limpos em: {guild.name}")
 
         if FORCE_COMMAND_RESET:
-            # One-time global command reset. Enable FORCE_COMMAND_RESET=1, deploy once, then disable it.
+            # Reset forte dos comandos globais.
+            # Use apenas uma vez no Railway com FORCE_COMMAND_RESET=1.
+            # Depois remova a variável ou mude para 0.
             print("FORCE_COMMAND_RESET ativo: apagando comandos globais antigos...")
             bot.tree.clear_commands(guild=None)
             await bot.tree.sync()
