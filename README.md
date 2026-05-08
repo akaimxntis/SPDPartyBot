@@ -302,4 +302,4 @@ Em desenvolvimento ativo.
 
 ## 📄 Licença
 
-Este projeto ainda não possui licença definida.
+Este projeto está licenciado sob a licença MIT.
