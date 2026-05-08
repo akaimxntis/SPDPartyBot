@@ -2146,10 +2146,6 @@ def active_participant_count() -> int:
     return len(users)
 
 
-def pluralize_pt(value: int, singular: str, plural: str) -> str:
-    return singular if int(value) == 1 else plural
-
-
 @tasks.loop(minutes=5)
 async def update_presence_loop():
     global _presence_index
@@ -2158,22 +2154,15 @@ async def update_presence_loop():
     guild_count = len(bot.guilds)
     participant_count = active_participant_count()
 
-    party_word = pluralize_pt(open_count, "party aberta", "parties abertas")
-    server_word = pluralize_pt(guild_count, "servidor", "servidores")
-    player_word = pluralize_pt(participant_count, "jogador", "jogadores")
-
     presence_options = [
-        (discord.ActivityType.playing, "🎮 organizando parties com cuidado"),
-        (discord.ActivityType.watching, f"📋 atualmente tenho {open_count} {party_word}"),
-        (discord.ActivityType.watching, f"🌎 estou em {guild_count} {server_word}"),
-        (discord.ActivityType.listening, "✨ use /party hub para começar"),
-        (discord.ActivityType.playing, "⏰ preparando lembretes de parties"),
+        (discord.ActivityType.playing, "organizando parties"),
+        (discord.ActivityType.watching, f"{open_count} parties abertas"),
+        (discord.ActivityType.watching, f"{guild_count} servidores"),
+        (discord.ActivityType.listening, "/party hub"),
     ]
 
     if participant_count:
-        presence_options.append((discord.ActivityType.watching, f"👥 ajudando {participant_count} {player_word} a se reunir"))
-    else:
-        presence_options.append((discord.ActivityType.watching, "👥 esperando a próxima party começar"))
+        presence_options.append((discord.ActivityType.watching, f"{participant_count} jogadores em parties"))
 
     activity_type, activity_name = presence_options[_presence_index % len(presence_options)]
     _presence_index += 1
