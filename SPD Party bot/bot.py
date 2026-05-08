@@ -996,7 +996,8 @@ async def update_party_message(party_id: str):
     try:
         message = await channel.fetch_message(int(data["message_id"]))
         disabled = data.get("status") != "open"
-        await message.edit(embed=make_party_embed(party_id), view=PartyView(disabled=disabled))
+        guild_id = int(data.get("guild_id", 0) or 0)
+        await message.edit(embed=make_party_embed(party_id), view=PartyView(disabled=disabled, guild_id=guild_id))
     except discord.HTTPException:
         pass
 
@@ -1007,8 +1008,15 @@ async def update_party_message(party_id: str):
 
 
 class HubView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, guild_id: Optional[int] = None):
         super().__init__(timeout=None)
+
+        # Ajusta os labels do Hub conforme o idioma do servidor quando o Hub é criado/editado.
+        # A instância registrada no on_ready continua sem guild_id apenas para manter os custom_id persistentes.
+        self.create_party.label = tr(guild_id, "create_party")
+        self.list_parties.label = tr(guild_id, "list_parties")
+        self.my_parties.label = tr(guild_id, "my_parties")
+        self.help_button.label = tr(guild_id, "help")
 
     @discord.ui.button(label="Criar Party", emoji="🎮", style=discord.ButtonStyle.success, custom_id="hub:create_party")
     async def create_party(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1187,7 +1195,7 @@ class CreatePartyModal(discord.ui.Modal):
         allowed_mentions = discord.AllowedMentions(everyone=ping_everyone)
 
         try:
-            message = await channel.send(content=content, embed=make_party_embed(party_id), view=PartyView(), allowed_mentions=allowed_mentions)
+            message = await channel.send(content=content, embed=make_party_embed(party_id), view=PartyView(guild_id=interaction.guild.id), allowed_mentions=allowed_mentions)
         except discord.Forbidden:
             parties.pop(party_id, None)
             save_parties()
@@ -1323,10 +1331,16 @@ class ManagePartyView(discord.ui.View):
 
 
 class PartyView(discord.ui.View):
-    def __init__(self, disabled: bool = False):
+    def __init__(self, disabled: bool = False, guild_id: Optional[int] = None):
         super().__init__(timeout=None)
-        # Labels persistentes não podem depender do servidor aqui sem contexto.
-        # O Discord manterá os botões funcionais via custom_id; embeds e respostas ficam traduzidos.
+
+        # Ajusta os labels dos botões conforme o idioma do servidor quando a mensagem é criada/editada.
+        # A instância registrada no on_ready continua sem guild_id apenas para manter os custom_id persistentes.
+        self.accepted_button.label = tr(guild_id, "btn_going")
+        self.tentative_button.label = tr(guild_id, "btn_maybe")
+        self.declined_button.label = tr(guild_id, "btn_no")
+        self.manage_button.label = tr(guild_id, "btn_manage")
+
         if disabled:
             for item in self.children:
                 if isinstance(item, discord.ui.Button):
@@ -2030,7 +2044,7 @@ async def party_hub(interaction: discord.Interaction):
         return
 
     try:
-        message = await interaction.channel.send(embed=make_hub_embed(interaction.guild.id), view=HubView())
+        message = await interaction.channel.send(embed=make_hub_embed(interaction.guild.id), view=HubView(interaction.guild.id))
     except discord.Forbidden:
         await interaction.response.send_message(tr(guild_id, "hub_no_perm"), ephemeral=True)
         return
