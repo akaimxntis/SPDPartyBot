@@ -25,6 +25,7 @@ PARTIES_PATH = DATA_DIR / "parties.json"
 DEFAULT_GUILD_CONFIG = {
     "party_channel_id": 0,
     "log_channel_id": 0,
+    "command_channel_id": 0,
     "host_role_id": 0,
     "staff_role_id": 0,
     "embed_color": 16766720,
@@ -97,10 +98,10 @@ def load_json(path: Path, default):
                 "guild_id",
                 "party_channel_id",
                 "log_channel_id",
+                "command_channel_id",
                 "host_role_id",
                 "staff_role_id",
                 "embed_color",
-                "hub_channel_id",
                 "everyone_can_create",
                 "ping_everyone",
             ):
@@ -235,6 +236,7 @@ I18N = {
         "bad": "❌ Problema",
         "channel_invites": "Canal de convites",
         "channel_logs": "Canal de logs",
+        "channel_commands": "Canal de comandos",
         "role_host": "Cargo Host",
         "role_staff": "Cargo Staff",
         "everyone_create": "Todos podem criar party",
@@ -250,6 +252,7 @@ I18N = {
         "no": "não",
         "config_select_channel_party": "Escolha o canal onde os convites das parties serão enviados:",
         "config_select_channel_logs": "Escolha o canal de logs:",
+        "config_select_channel_commands": "Escolha o canal onde o cargo Host pode usar /party hub:",
         "config_select_host_role": "Escolha o cargo que pode criar parties:",
         "config_select_staff_role": "Escolha o cargo da staff:",
         "back": "Voltar",
@@ -276,7 +279,9 @@ I18N = {
         "test_no_channel": "Esse canal ainda não foi configurado.",
         "test_forbidden": "Achei o canal, mas não tenho permissão para enviar mensagens nele.",
         "staff_needed": "Você precisa ser staff ou ter **Gerenciar servidor** para usar essa configuração.",
-        "hub_staff_needed": "Você precisa ser staff ou ter **Gerenciar servidor** para criar o Hub.",
+        "hub_staff_needed": "Você precisa ser staff, ter **Gerenciar servidor** ou usar o cargo Host no canal permitido para criar o Hub.",
+        "hub_command_channel_needed": "A staff precisa configurar o **Canal de comandos** antes do cargo Host poder usar `/party hub`.",
+        "hub_wrong_channel": "Você só pode usar `/party hub` em {channel}.",
         "clean_staff_needed": "Só a staff pode limpar parties encerradas.",
         "hub_created": "Hub criado nesse canal: {url}",
         "hub_no_perm": "Não tenho permissão para enviar mensagem nesse canal.",
@@ -401,6 +406,7 @@ I18N = {
         "bad": "❌ Problem",
         "channel_invites": "Invite channel",
         "channel_logs": "Log channel",
+        "channel_commands": "Command channel",
         "role_host": "Host role",
         "role_staff": "Staff role",
         "everyone_create": "Everyone can create parties",
@@ -416,6 +422,7 @@ I18N = {
         "no": "no",
         "config_select_channel_party": "Choose where party invites will be sent:",
         "config_select_channel_logs": "Choose the log channel:",
+        "config_select_channel_commands": "Choose the channel where the Host role can use /party hub:",
         "config_select_host_role": "Choose the role that can create parties:",
         "config_select_staff_role": "Choose the staff role:",
         "back": "Back",
@@ -442,7 +449,9 @@ I18N = {
         "test_no_channel": "This channel is not configured yet.",
         "test_forbidden": "I found the channel, but I cannot send messages there.",
         "staff_needed": "You need to be staff or have **Manage Server** to use this setting.",
-        "hub_staff_needed": "You need to be staff or have **Manage Server** to create the Hub.",
+        "hub_staff_needed": "You need to be staff, have **Manage Server**, or use the Host role in the allowed channel to create the Hub.",
+        "hub_command_channel_needed": "Staff needs to configure the **Command channel** before the Host role can use `/party hub`.",
+        "hub_wrong_channel": "You can only use `/party hub` in {channel}.",
         "clean_staff_needed": "Only staff can clean closed parties.",
         "hub_created": "Hub created in this channel: {url}",
         "hub_no_perm": "I do not have permission to send messages in this channel.",
@@ -614,6 +623,12 @@ def is_staff(member: discord.Member) -> bool:
     guild_conf = get_guild_config(member.guild.id)
     staff_role_id = int(guild_conf.get("staff_role_id", 0) or 0)
     return member.guild_permissions.manage_guild or member_has_role(member, staff_role_id)
+
+
+def is_host(member: discord.Member) -> bool:
+    guild_conf = get_guild_config(member.guild.id)
+    host_role_id = int(guild_conf.get("host_role_id", 0) or 0)
+    return member_has_role(member, host_role_id)
 
 
 def interaction_member_is_staff(interaction: discord.Interaction) -> bool:
@@ -1548,6 +1563,7 @@ async def make_config_embed(guild: discord.Guild) -> discord.Embed:
     channels = [
         await channel_preview(guild, int(guild_conf.get("party_channel_id", 0) or 0), tr(guild_id, "channel_invites"), ("view_channel", "send_messages", "embed_links", "read_message_history")),
         await channel_preview(guild, int(guild_conf.get("log_channel_id", 0) or 0), tr(guild_id, "channel_logs"), ("view_channel", "send_messages", "read_message_history")),
+        await channel_preview(guild, int(guild_conf.get("command_channel_id", 0) or 0), tr(guild_id, "channel_commands"), ("view_channel", "send_messages", "read_message_history")),
     ]
     embed.add_field(name=tr(guild_id, "section_channels"), value="\n".join(channels), inline=False)
 
@@ -1619,6 +1635,24 @@ class LogChannelSelect(discord.ui.ChannelSelect):
         set_guild_config_value(interaction.guild_id, "log_channel_id", channel.id)
         await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=ConfigPanelView(interaction.guild.id))
         await log_action(interaction.guild, f"⚙️ <@{interaction.user.id}> definiu o canal de logs como {channel.mention}.")
+
+
+class CommandChannelSelect(discord.ui.ChannelSelect):
+    def __init__(self, guild_id: Optional[int]):
+        super().__init__(
+            placeholder=tr(guild_id, "config_select_channel_commands"),
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news],
+            min_values=1,
+            max_values=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        if await reject_if_not_staff(interaction):
+            return
+        channel = self.values[0]
+        set_guild_config_value(interaction.guild_id, "command_channel_id", channel.id)
+        await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=ConfigPanelView(interaction.guild.id))
+        await log_action(interaction.guild, f"⚙️ <@{interaction.user.id}> definiu o canal de comandos como {channel.mention}.")
 
 
 class HostRoleSelect(discord.ui.RoleSelect):
@@ -1834,8 +1868,10 @@ class ChannelsConfigView(discord.ui.View):
         self.guild_id = guild_id
         self.set_party_channel.label = tr(guild_id, "channel_invites")
         self.set_log_channel.label = tr(guild_id, "channel_logs")
+        self.set_command_channel.label = tr(guild_id, "channel_commands")
         self.set_party_channel_by_id.label = f"ID {tr(guild_id, 'channel_invites')}"
         self.set_log_channel_by_id.label = f"ID {tr(guild_id, 'channel_logs')}"
+        self.set_command_channel_by_id.label = f"ID {tr(guild_id, 'channel_commands')}"
         self.test_party_channel.label = tr(guild_id, "test_invites")
         self.test_log_channel.label = tr(guild_id, "test_logs")
         self.back.label = tr(guild_id, "back")
@@ -1852,6 +1888,13 @@ class ChannelsConfigView(discord.ui.View):
             return
         await interaction.response.edit_message(content=tr(self.guild_id, "config_select_channel_logs"), embed=None, view=SelectOnlyView(self.guild_id, LogChannelSelect(self.guild_id)))
 
+    @discord.ui.button(label="Canal de Comandos", emoji="⌨️", style=discord.ButtonStyle.primary, row=0)
+    async def set_command_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+        await interaction.response.edit_message(content=tr(self.guild_id, "config_select_channel_commands"), embed=None, view=SelectOnlyView(self.guild_id, CommandChannelSelect(self.guild_id)))
+
+
     @discord.ui.button(label="ID Canal Convites", emoji="🔢", style=discord.ButtonStyle.secondary, row=1)
     async def set_party_channel_by_id(self, interaction: discord.Interaction, button: discord.ui.Button):
         if await reject_if_not_staff(interaction):
@@ -1864,6 +1907,13 @@ class ChannelsConfigView(discord.ui.View):
             return
         await interaction.response.send_modal(ManualChannelModal(self.guild_id, "log_channel_id", "Canal de logs por ID"))
 
+    @discord.ui.button(label="ID Canal Comandos", emoji="🔢", style=discord.ButtonStyle.secondary, row=1)
+    async def set_command_channel_by_id(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+        await interaction.response.send_modal(ManualChannelModal(self.guild_id, "command_channel_id", "Canal de comandos por ID"))
+
+
     @discord.ui.button(label="Testar convites", emoji="🧪", style=discord.ButtonStyle.success, row=2)
     async def test_party_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if await reject_if_not_staff(interaction):
@@ -1875,6 +1925,7 @@ class ChannelsConfigView(discord.ui.View):
         if await reject_if_not_staff(interaction):
             return
         await send_channel_test(interaction, "log_channel_id", "test_logs_msg")
+
 
     @discord.ui.button(label="Voltar", emoji="↩️", style=discord.ButtonStyle.secondary, row=3)
     async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2189,13 +2240,30 @@ async def party_hub(interaction: discord.Interaction):
         await interaction.response.send_message(tr(guild_id, "use_inside_server"), ephemeral=True)
         return
 
-    if not is_staff(member):
-        await interaction.response.send_message(tr(guild_id, "hub_staff_needed"), ephemeral=True)
-        return
-
     if not isinstance(interaction.channel, discord.TextChannel):
         await interaction.response.send_message(tr(guild_id, "normal_text_channel_only"), ephemeral=True)
         return
+
+    guild_conf = get_guild_config(interaction.guild.id)
+    staff_allowed = is_staff(member)
+    host_allowed = is_host(member)
+
+    if not staff_allowed:
+        if not host_allowed:
+            await interaction.response.send_message(tr(guild_id, "hub_staff_needed"), ephemeral=True)
+            return
+
+        command_channel_id = int(guild_conf.get("command_channel_id", 0) or 0)
+        if not command_channel_id:
+            await interaction.response.send_message(tr(guild_id, "hub_command_channel_needed"), ephemeral=True)
+            return
+
+        if interaction.channel_id != command_channel_id:
+            await interaction.response.send_message(
+                tr(guild_id, "hub_wrong_channel", channel=f"<#{command_channel_id}>"),
+                ephemeral=True,
+            )
+            return
 
     try:
         message = await interaction.channel.send(embed=make_hub_embed(interaction.guild.id), view=HubView(interaction.guild.id))
