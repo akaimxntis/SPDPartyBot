@@ -37,6 +37,9 @@ DEFAULT_GUILD_CONFIG = {
     "auto_close_after_hours": 6,
     "reminder_enabled": True,
     "reminder_minutes": 15,
+    "embed_theme": "spd",
+    "default_image_url": "",
+    "saved_images": [],
 }
 
 DEFAULT_CONFIG = {
@@ -47,6 +50,17 @@ DEFAULT_CONFIG = {
 SUPPORTED_LANGUAGES = {
     "pt-BR": "Português do Brasil",
     "en-US": "English",
+}
+
+EMBED_THEMES = {
+    "spd": {"name": "SPD Neon", "emoji": "💜", "color": 0x7B2CFF},
+    "green": {"name": "Lime Green", "emoji": "💚", "color": 0x39FF14},
+    "blue": {"name": "Ocean Blue", "emoji": "🌊", "color": 0x3498DB},
+    "red": {"name": "Crimson Red", "emoji": "❤️", "color": 0xE74C3C},
+    "gold": {"name": "Golden", "emoji": "🏆", "color": 0xF1C40F},
+    "pink": {"name": "Cyber Pink", "emoji": "🌸", "color": 0xFF4FD8},
+    "dark": {"name": "Dark Steel", "emoji": "🖤", "color": 0x2F3136},
+    "ice": {"name": "Ice Cyan", "emoji": "❄️", "color": 0x00D4FF},
 }
 
 
@@ -246,6 +260,21 @@ I18N = {
         "reminders": "Lembretes automáticos",
         "reminder_before": "Lembrar antes",
         "embed_color": "Cor do embed",
+        "embed_theme": "Tema do embed",
+        "default_image": "Imagem padrão",
+        "saved_images": "Banners salvos",
+        "quick_theme": "Tema rápido",
+        "set_default_image": "Imagem padrão",
+        "save_banner": "Salvar banner",
+        "choose_banner": "Escolher banner",
+        "clear_banners": "Limpar banners",
+        "image_saved": "Banner salvo. Total: **{count}/10**.",
+        "image_save_limit": "Este servidor já tem **10** banners salvos. Remova alguns antes de salvar mais.",
+        "image_default_changed": "Imagem padrão definida.",
+        "image_default_removed": "Imagem padrão removida.",
+        "image_none_saved": "Este servidor ainda não tem banners salvos.",
+        "image_cleared": "Banners salvos removidos.",
+        "theme_changed": "Tema alterado para **{theme}**.",
         "language": "Idioma",
         "timezone": "Fuso horário",
         "yes": "sim",
@@ -416,6 +445,21 @@ I18N = {
         "reminders": "Automatic reminders",
         "reminder_before": "Remind before",
         "embed_color": "Embed color",
+        "embed_theme": "Embed theme",
+        "default_image": "Default image",
+        "saved_images": "Saved banners",
+        "quick_theme": "Quick theme",
+        "set_default_image": "Default image",
+        "save_banner": "Save banner",
+        "choose_banner": "Choose banner",
+        "clear_banners": "Clear banners",
+        "image_saved": "Banner saved. Total: **{count}/10**.",
+        "image_save_limit": "This server already has **10** saved banners. Remove some before saving more.",
+        "image_default_changed": "Default image set.",
+        "image_default_removed": "Default image removed.",
+        "image_none_saved": "This server does not have saved banners yet.",
+        "image_cleared": "Saved banners removed.",
+        "theme_changed": "Theme changed to **{theme}**.",
         "language": "Language",
         "timezone": "Timezone",
         "yes": "yes",
@@ -594,10 +638,32 @@ def set_guild_config_value(guild_id: int, key: str, value: Any):
 
 
 def guild_color(guild_id: Optional[int]) -> int:
+    guild_conf = get_guild_config(guild_id)
     try:
-        return int(get_guild_config(guild_id).get("embed_color", 16766720))
+        return int(guild_conf.get("embed_color", EMBED_THEMES["spd"]["color"]))
     except (ValueError, TypeError):
-        return 16766720
+        theme_key = str(guild_conf.get("embed_theme", "spd"))
+        return int(EMBED_THEMES.get(theme_key, EMBED_THEMES["spd"])["color"])
+
+
+def current_theme_name(guild_id: Optional[int]) -> str:
+    guild_conf = get_guild_config(guild_id)
+    theme_key = str(guild_conf.get("embed_theme", "spd"))
+    if theme_key == "custom":
+        return "🎨 Custom"
+    theme = EMBED_THEMES.get(theme_key, EMBED_THEMES["spd"])
+    return f"{theme['emoji']} {theme['name']}"
+
+
+def is_valid_image_url(url: str) -> bool:
+    cleaned = (url or "").strip().lower()
+    return cleaned.startswith(("http://", "https://"))
+
+
+def saved_images_for_guild(guild_id: Optional[int]) -> list:
+    guild_conf = get_guild_config(guild_id)
+    saved = guild_conf.get("saved_images", [])
+    return saved if isinstance(saved, list) else []
 
 
 def guild_tz(guild_id: Optional[int]) -> timezone:
@@ -993,6 +1059,8 @@ def make_party_embed(party_id: str) -> discord.Embed:
     queue = data.get("queue", [])
     status = data.get("status", "open")
     image_url = data.get("image_url", "")
+    if not image_url:
+        image_url = get_guild_config(guild_id).get("default_image_url", "")
     host_id = data.get("host_id")
 
     status_text = tr(guild_id, "status_open") if status == "open" else tr(guild_id, "status_closed")
@@ -1591,10 +1659,16 @@ async def make_config_embed(guild: discord.Guild) -> discord.Embed:
     embed.add_field(name=tr(guild_id, "section_behavior"), value=behavior, inline=False)
 
     tz_minutes = int(guild_conf.get("timezone_offset_minutes", -180) or 0)
+    saved_count = len(saved_images_for_guild(guild_id))
+    default_image = str(guild_conf.get("default_image_url", "") or "")
+    default_image_preview = "[link]({url})".format(url=default_image) if default_image else f"`{tr(guild_id, 'not_defined')}`"
     appearance = (
         f"**{tr(guild_id, 'language')}:** `{SUPPORTED_LANGUAGES.get(lang_for_guild(guild_id), lang_for_guild(guild_id))}`\n"
         f"**{tr(guild_id, 'timezone')}:** `UTC{format_timezone_offset(tz_minutes)}`\n"
-        f"**{tr(guild_id, 'embed_color')}:** `{int(guild_conf.get('embed_color', 16766720))}`"
+        f"**{tr(guild_id, 'embed_theme')}:** `{current_theme_name(guild_id)}`\n"
+        f"**{tr(guild_id, 'embed_color')}:** `{int(guild_conf.get('embed_color', EMBED_THEMES['spd']['color']))}`\n"
+        f"**{tr(guild_id, 'default_image')}:** {default_image_preview}\n"
+        f"**{tr(guild_id, 'saved_images')}:** `{saved_count}/10`"
     )
     embed.add_field(name=tr(guild_id, "section_appearance"), value=appearance, inline=False)
 
@@ -1766,9 +1840,125 @@ class ConfigColorModal(discord.ui.Modal):
             await interaction.response.send_message(tr(guild_id, "color_range"), ephemeral=True)
             return
 
+        set_guild_config_value(interaction.guild_id, "embed_theme", "custom")
         set_guild_config_value(interaction.guild_id, "embed_color", value)
         await interaction.response.send_message(tr(guild_id, "color_changed", value=value), ephemeral=True)
         await log_action(interaction.guild, f"⚙️ <@{interaction.user.id}> alterou a cor do embed para `{value}`.")
+
+
+
+class DefaultImageModal(discord.ui.Modal):
+    def __init__(self, guild_id: Optional[int]):
+        title = "Imagem padrão da party" if lang_for_guild(guild_id) == "pt-BR" else "Default party image"
+        super().__init__(title=title)
+        self.guild_id = guild_id
+        self.image_url = discord.ui.TextInput(
+            label=tr(guild_id, "default_image"),
+            placeholder="https://site.com/banner.png ou vazio para remover",
+            max_length=300,
+            required=False,
+        )
+        self.add_item(self.image_url)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if await reject_if_not_staff(interaction):
+            return
+
+        guild_id = guild_id_from_interaction(interaction)
+        image = str(self.image_url.value).strip()
+        if image and not is_valid_image_url(image):
+            await interaction.response.send_message(tr(guild_id, "image_invalid"), ephemeral=True)
+            return
+
+        set_guild_config_value(interaction.guild_id, "default_image_url", image)
+        message_key = "image_default_changed" if image else "image_default_removed"
+        await interaction.response.send_message(tr(guild_id, message_key), ephemeral=True)
+        await log_action(interaction.guild, f"🖼️ <@{interaction.user.id}> alterou a imagem padrão das parties.")
+
+
+class SaveBannerModal(discord.ui.Modal):
+    def __init__(self, guild_id: Optional[int]):
+        title = "Salvar banner" if lang_for_guild(guild_id) == "pt-BR" else "Save banner"
+        super().__init__(title=title)
+        self.guild_id = guild_id
+        self.image_url = discord.ui.TextInput(
+            label=tr(guild_id, "save_banner"),
+            placeholder="https://site.com/banner.png",
+            max_length=300,
+            required=True,
+        )
+        self.add_item(self.image_url)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if await reject_if_not_staff(interaction):
+            return
+
+        guild_id = guild_id_from_interaction(interaction)
+        image = str(self.image_url.value).strip()
+        if not is_valid_image_url(image):
+            await interaction.response.send_message(tr(guild_id, "image_invalid"), ephemeral=True)
+            return
+
+        guild_conf = get_guild_config(interaction.guild_id)
+        saved = saved_images_for_guild(interaction.guild_id)
+        if image not in saved:
+            if len(saved) >= 10:
+                await interaction.response.send_message(tr(guild_id, "image_save_limit"), ephemeral=True)
+                return
+            saved.append(image)
+
+        guild_conf["saved_images"] = saved
+        guild_conf["default_image_url"] = image
+        save_config()
+
+        await interaction.response.send_message(tr(guild_id, "image_saved", count=len(saved)), ephemeral=True)
+        await log_action(interaction.guild, f"🖼️ <@{interaction.user.id}> salvou um banner e definiu como imagem padrão.")
+
+
+class SavedBannerSelect(discord.ui.Select):
+    def __init__(self, guild_id: Optional[int]):
+        saved = saved_images_for_guild(guild_id)
+        options = []
+        for index, url in enumerate(saved[:10], start=1):
+            short = url if len(url) <= 80 else url[:77] + "..."
+            options.append(discord.SelectOption(label=f"Banner {index}", description=short, value=str(index - 1), emoji="🖼️"))
+
+        super().__init__(
+            placeholder=tr(guild_id, "choose_banner"),
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        if await reject_if_not_staff(interaction):
+            return
+
+        guild_id = guild_id_from_interaction(interaction)
+        saved = saved_images_for_guild(guild_id)
+        index = int(self.values[0])
+        if index < 0 or index >= len(saved):
+            await interaction.response.send_message(tr(guild_id, "image_none_saved"), ephemeral=True)
+            return
+
+        set_guild_config_value(interaction.guild_id, "default_image_url", saved[index])
+        await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=AppearanceConfigView(interaction.guild.id))
+        await interaction.followup.send(tr(guild_id, "image_default_changed"), ephemeral=True)
+
+
+class SavedBannerSelectView(discord.ui.View):
+    def __init__(self, guild_id: Optional[int]):
+        super().__init__(timeout=180)
+        self.guild_id = guild_id
+        self.add_item(SavedBannerSelect(guild_id))
+        self.back.label = tr(guild_id, "back")
+
+    @discord.ui.button(label="Voltar", emoji="↩️", style=discord.ButtonStyle.secondary)
+    async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+        await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=AppearanceConfigView(interaction.guild.id))
+
 
 
 class TimezoneModal(discord.ui.Modal):
@@ -2053,8 +2243,13 @@ class AppearanceConfigView(discord.ui.View):
         super().__init__(timeout=300)
         self.guild_id = guild_id
         self.set_language.label = tr(guild_id, "language")
+        self.quick_theme.label = tr(guild_id, "quick_theme")
         self.set_embed_color.label = tr(guild_id, "embed_color")
         self.set_timezone.label = tr(guild_id, "timezone")
+        self.set_default_image.label = tr(guild_id, "set_default_image")
+        self.save_banner.label = tr(guild_id, "save_banner")
+        self.choose_banner.label = tr(guild_id, "choose_banner")
+        self.clear_banners.label = tr(guild_id, "clear_banners")
         self.back.label = tr(guild_id, "back")
 
     @discord.ui.button(label="Idioma", emoji="🌐", style=discord.ButtonStyle.primary, row=0)
@@ -2062,6 +2257,26 @@ class AppearanceConfigView(discord.ui.View):
         if await reject_if_not_staff(interaction):
             return
         await interaction.response.edit_message(content=None, embed=None, view=SelectOnlyView(self.guild_id, LanguageSelect(self.guild_id)))
+
+    @discord.ui.button(label="Tema rápido", emoji="✨", style=discord.ButtonStyle.primary, row=0)
+    async def quick_theme(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+
+        guild_conf = get_guild_config(interaction.guild_id)
+        theme_keys = list(EMBED_THEMES.keys())
+        current = str(guild_conf.get("embed_theme", "spd"))
+        next_index = (theme_keys.index(current) + 1) % len(theme_keys) if current in theme_keys else 0
+        next_key = theme_keys[next_index]
+        theme = EMBED_THEMES[next_key]
+
+        guild_conf["embed_theme"] = next_key
+        guild_conf["embed_color"] = int(theme["color"])
+        save_config()
+
+        await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=AppearanceConfigView(interaction.guild.id))
+        await interaction.followup.send(tr(interaction.guild_id, "theme_changed", theme=f"{theme['emoji']} {theme['name']}"), ephemeral=True)
+        await log_action(interaction.guild, f"✨ <@{interaction.user.id}> alterou o tema visual para **{theme['name']}**.")
 
     @discord.ui.button(label="Cor", emoji="🎨", style=discord.ButtonStyle.secondary, row=0)
     async def set_embed_color(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2075,7 +2290,44 @@ class AppearanceConfigView(discord.ui.View):
             return
         await interaction.response.send_modal(TimezoneModal(self.guild_id))
 
-    @discord.ui.button(label="Voltar", emoji="↩️", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="Imagem padrão", emoji="🖼️", style=discord.ButtonStyle.primary, row=1)
+    async def set_default_image(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+        await interaction.response.send_modal(DefaultImageModal(self.guild_id))
+
+    @discord.ui.button(label="Salvar banner", emoji="💾", style=discord.ButtonStyle.secondary, row=1)
+    async def save_banner(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+        await interaction.response.send_modal(SaveBannerModal(self.guild_id))
+
+    @discord.ui.button(label="Escolher banner", emoji="📌", style=discord.ButtonStyle.secondary, row=1)
+    async def choose_banner(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+
+        if not saved_images_for_guild(interaction.guild_id):
+            await interaction.response.send_message(tr(interaction.guild_id, "image_none_saved"), ephemeral=True)
+            return
+
+        await interaction.response.edit_message(content=None, embed=None, view=SavedBannerSelectView(interaction.guild_id))
+
+    @discord.ui.button(label="Limpar banners", emoji="🧹", style=discord.ButtonStyle.danger, row=2)
+    async def clear_banners(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+
+        guild_conf = get_guild_config(interaction.guild_id)
+        guild_conf["saved_images"] = []
+        guild_conf["default_image_url"] = ""
+        save_config()
+
+        await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=AppearanceConfigView(interaction.guild.id))
+        await interaction.followup.send(tr(interaction.guild_id, "image_cleared"), ephemeral=True)
+        await log_action(interaction.guild, f"🧹 <@{interaction.user.id}> removeu os banners salvos.")
+
+    @discord.ui.button(label="Voltar", emoji="↩️", style=discord.ButtonStyle.secondary, row=2)
     async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
         if await reject_if_not_staff(interaction):
             return
