@@ -263,6 +263,28 @@ Cada servidor pode ter:
 - Fuso horário próprio
 - Cor de embed própria
 
+## 💜 Supporters
+
+Thanks to everyone supporting this project!
+
+### Project Boosters
+
+
+
+<!-- $30 supporters here -->
+
+### Community Supporters
+
+
+
+<!-- $15 supporters here -->
+
+### Supporters
+
+
+
+<!-- $5 supporters here -->
+
 ## 📌 Status do projeto
 
 Em desenvolvimento ativo.
