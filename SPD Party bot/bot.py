@@ -549,8 +549,9 @@ intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents)
 _commands_synced = False
+_presence_index = 0
 FORCE_COMMAND_RESET = os.getenv("FORCE_COMMAND_RESET", "0").strip().lower() in {"1", "true", "yes", "sim"}
 
 
@@ -2130,6 +2131,56 @@ async def auto_close_party(party_id: str, data: Dict[str, Any], reason_key: str)
     await log_action(guild, tr(guild_id, "log_party_auto_closed", title=data.get("title", "Party"), party_id=party_id))
 
 
+def open_party_count() -> int:
+    return sum(1 for data in parties.values() if isinstance(data, dict) and data.get("status") == "open")
+
+
+def active_participant_count() -> int:
+    users = set()
+    for data in parties.values():
+        if not isinstance(data, dict) or data.get("status") != "open":
+            continue
+        for key in ("accepted", "tentative", "queue"):
+            for user_id in data.get(key, []):
+                users.add(int(user_id))
+    return len(users)
+
+
+@tasks.loop(minutes=5)
+async def update_presence_loop():
+    global _presence_index
+
+    open_count = open_party_count()
+    guild_count = len(bot.guilds)
+    participant_count = active_participant_count()
+
+    presence_options = [
+        (discord.ActivityType.playing, "organizando parties"),
+        (discord.ActivityType.watching, f"{open_count} parties abertas"),
+        (discord.ActivityType.watching, f"{guild_count} servidores"),
+        (discord.ActivityType.listening, "/party hub"),
+    ]
+
+    if participant_count:
+        presence_options.append((discord.ActivityType.watching, f"{participant_count} jogadores em parties"))
+
+    activity_type, activity_name = presence_options[_presence_index % len(presence_options)]
+    _presence_index += 1
+
+    try:
+        await bot.change_presence(
+            status=discord.Status.online,
+            activity=discord.Activity(type=activity_type, name=activity_name),
+        )
+    except discord.HTTPException:
+        pass
+
+
+@update_presence_loop.before_loop
+async def before_update_presence_loop():
+    await bot.wait_until_ready()
+
+
 @tasks.loop(seconds=60)
 async def party_maintenance_loop():
     now_ts = int(datetime.now(timezone.utc).timestamp())
@@ -2196,6 +2247,10 @@ async def on_ready():
     if not party_maintenance_loop.is_running():
         party_maintenance_loop.start()
         print("Loop de manutenção de parties iniciado.")
+
+    if not update_presence_loop.is_running():
+        update_presence_loop.start()
+        print("Loop de status dinâmico iniciado.")
 
     if _commands_synced:
         return
