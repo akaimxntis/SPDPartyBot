@@ -13,7 +13,7 @@ from discord.ext import commands
 
 
 # ============================================================
-# Arquivos / dados
+# Data files
 # ============================================================
 
 DATA_DIR = Path(os.getenv("DATA_DIR") or Path(__file__).parent)
@@ -31,7 +31,7 @@ DEFAULT_GUILD_CONFIG = {
     "everyone_can_create": False,
     "ping_everyone": True,
     "language": "pt-BR",
-    "timezone_offset_minutes": -180,  # UTC-3 por padrão
+    "timezone_offset_minutes": -180,
 }
 
 DEFAULT_CONFIG = {
@@ -46,7 +46,7 @@ SUPPORTED_LANGUAGES = {
 
 
 def save_json(path: Path, data):
-    """Salva JSON de forma atômica para reduzir risco de corromper o arquivo."""
+    """Save JSON atomically to reduce the risk of corrupted files."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
 
@@ -76,7 +76,7 @@ def load_json(path: Path, default):
                 data[key] = deepcopy(value)
                 changed = True
 
-        # Migração automática da versão antiga, que usava um servidor só.
+        # Migrate legacy single-server config to per-server config.
         old_guild_id = int(data.get("guild_id", 0) or 0) if "guild_id" in data else 0
         if old_guild_id:
             guild_key = str(old_guild_id)
@@ -114,7 +114,7 @@ parties: Dict[str, Any] = load_json(PARTIES_PATH, {})
 
 
 # ============================================================
-# I18N
+# Localization
 # ============================================================
 
 I18N = {
@@ -454,12 +454,12 @@ def tr(guild_id: Optional[int], key: str, **kwargs) -> str:
 
 
 # ============================================================
-# Config / persistência
+# Configuration and persistence
 # ============================================================
 
 
 def normalize_parties():
-    """Migra parties antigas para o formato interno atual sem quebrar o bot."""
+    """Migrate old party data to the current internal format."""
     changed = False
 
     for party_id, data in list(parties.items()):
@@ -577,7 +577,7 @@ def guild_id_from_interaction(interaction: discord.Interaction) -> Optional[int]
 
 
 # ============================================================
-# Permissões / utilitários
+# Permissions and utilities
 # ============================================================
 
 
@@ -779,16 +779,7 @@ def format_timezone_offset(minutes: int) -> str:
 
 
 def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, bool]:
-    """
-    Interpreta formatos simples:
-    - hoje 18:30
-    - amanhã 19:00 - 21:00
-    - 08/05/2026 18:30
-    - 08/05/2026 18:30 - 20:30
-    - 08/05/2026 18:30 - 09/05/2026 01:00
-
-    Retorna: (texto_original, start_ts, end_ts, parsed)
-    """
+    """Parse simple time formats and return: raw_text, start_ts, end_ts, parsed."""
     text = (raw or "").strip()
     if not text:
         return "", 0, 0, False
@@ -797,7 +788,7 @@ def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, 
     now_local = datetime.now(tz)
     lowered = text.lower().strip()
 
-    # Separador de intervalo. Evita quebrar datas por hífen porque usamos dd/mm/yyyy.
+    # Split time ranges without breaking dates that use dd/mm/yyyy.
     start_part = text
     end_part = ""
     if " - " in text:
@@ -821,7 +812,7 @@ def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, 
             date_base = (now_local + timedelta(days=1)).date()
             p = re.sub(r"^(amanhã|amanha|tomorrow)\s+", "", p, flags=re.IGNORECASE)
 
-        # dd/mm/yyyy hh:mm ou dd/mm hh:mm
+        # dd/mm/yyyy hh:mm or dd/mm hh:mm
         match = re.search(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\s+(\d{1,2}):(\d{2})", p)
         if match:
             day, month, year, hour, minute = match.groups()
@@ -842,14 +833,14 @@ def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, 
             except ValueError:
                 return None
 
-        # somente hh:mm: assume hoje, ou data_base se veio hoje/amanhã
+        # hh:mm only: assume today unless today/tomorrow was provided.
         match = re.search(r"(\d{1,2}):(\d{2})", p)
         if match:
             hour, minute = match.groups()
             base = date_base or now_local.date()
             try:
                 dt = datetime(base.year, base.month, base.day, int(hour), int(minute), tzinfo=tz)
-                # Se o usuário digitou só hora e já passou muito, assume amanhã.
+                # If only the time was provided and it already passed, assume tomorrow.
                 if date_base is None and dt < now_local - timedelta(hours=2):
                     dt += timedelta(days=1)
                 return dt
@@ -863,7 +854,7 @@ def parse_party_time(raw: str, guild_id: Optional[int]) -> Tuple[str, int, int, 
             return None
         parsed = parse_start(part)
         if parsed:
-            # Se o fim tem só hora, parse_start pode assumir hoje. Ajusta para dia do início.
+            # If the end has only a time, align it with the start date.
             if not re.search(r"\d{1,2}/\d{1,2}|\d{4}-\d{1,2}-\d{1,2}|amanh|tomorrow|today|hoje", part, re.I):
                 parsed = parsed.replace(year=start_dt.year, month=start_dt.month, day=start_dt.day)
             if parsed <= start_dt:
@@ -1003,7 +994,7 @@ async def update_party_message(party_id: str):
 
 
 # ============================================================
-# Views do Hub e Party
+# Hub and party views
 # ============================================================
 
 
@@ -1011,8 +1002,7 @@ class HubView(discord.ui.View):
     def __init__(self, guild_id: Optional[int] = None):
         super().__init__(timeout=None)
 
-        # Ajusta os labels do Hub conforme o idioma do servidor quando o Hub é criado/editado.
-        # A instância registrada no on_ready continua sem guild_id apenas para manter os custom_id persistentes.
+        # Localize labels when sending/editing the Hub. The on_ready instance only keeps persistent custom IDs.
         self.create_party.label = tr(guild_id, "create_party")
         self.list_parties.label = tr(guild_id, "list_parties")
         self.my_parties.label = tr(guild_id, "my_parties")
@@ -1334,8 +1324,7 @@ class PartyView(discord.ui.View):
     def __init__(self, disabled: bool = False, guild_id: Optional[int] = None):
         super().__init__(timeout=None)
 
-        # Ajusta os labels dos botões conforme o idioma do servidor quando a mensagem é criada/editada.
-        # A instância registrada no on_ready continua sem guild_id apenas para manter os custom_id persistentes.
+        # Localize labels when sending/editing party messages. The on_ready instance only keeps persistent custom IDs.
         self.accepted_button.label = tr(guild_id, "btn_going")
         self.tentative_button.label = tr(guild_id, "btn_maybe")
         self.declined_button.label = tr(guild_id, "btn_no")
@@ -1475,7 +1464,7 @@ class PartyView(discord.ui.View):
 
 
 # ============================================================
-# Config panel
+# Configuration panel
 # ============================================================
 
 
@@ -1759,7 +1748,7 @@ class ConfigPanelView(discord.ui.View):
     def __init__(self, guild_id: Optional[int]):
         super().__init__(timeout=300)
         self.guild_id = guild_id
-        # Labels traduzidas no painel.
+        # Localized panel labels.
         self.channels_button.label = "Canais" if lang_for_guild(guild_id) == "pt-BR" else "Channels"
         self.roles_button.label = "Cargos" if lang_for_guild(guild_id) == "pt-BR" else "Roles"
         self.behavior_button.label = "Comportamento" if lang_for_guild(guild_id) == "pt-BR" else "Behavior"
@@ -1980,7 +1969,7 @@ class AppearanceConfigView(discord.ui.View):
 
 
 # ============================================================
-# Eventos / slash commands
+# Events and slash commands
 # ============================================================
 
 
@@ -1996,17 +1985,14 @@ async def on_ready():
         return
 
     try:
-        # Sempre limpa comandos antigos específicos de servidor.
-        # Eles foram criados nas versões antigas com guild=discord.Object(...).
+        # Clear legacy guild-specific commands created by older versions.
         for guild in bot.guilds:
             bot.tree.clear_commands(guild=discord.Object(id=guild.id))
             await bot.tree.sync(guild=discord.Object(id=guild.id))
             print(f"Comandos antigos de servidor limpos em: {guild.name}")
 
         if FORCE_COMMAND_RESET:
-            # Reset forte dos comandos globais.
-            # Use apenas uma vez no Railway com FORCE_COMMAND_RESET=1.
-            # Depois remova a variável ou mude para 0.
+            # One-time global command reset. Enable FORCE_COMMAND_RESET=1, deploy once, then disable it.
             print("FORCE_COMMAND_RESET ativo: apagando comandos globais antigos...")
             bot.tree.clear_commands(guild=None)
             await bot.tree.sync()
