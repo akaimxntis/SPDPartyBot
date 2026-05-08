@@ -1,111 +1,111 @@
 # SPD Party Bot
 
-SPD Party Bot é um bot para Discord criado para organizar parties, squads e eventos rápidos em servidores de comunidade.
+SPD Party Bot is an open source Discord bot for organizing gaming parties, squads and quick community events.
 
-Com ele, membros autorizados podem criar convites de party por formulário, definir vagas, horário, descrição e imagem. Os jogadores respondem com botões interativos como **Vou**, **Talvez** e **Não vou**. Quando a party lota, o bot coloca novos participantes em uma fila automática.
+Authorized members can create party invites through an interactive form, set slots, time, description and image, and let players respond with buttons such as **Going**, **Maybe** and **Not going**. When a party is full, the bot automatically adds new participants to a queue.
 
-## ✨ Recursos
+## ✨ Features
 
-- Hub de parties com botões interativos.
-- Criação de party por formulário/modal.
-- Respostas rápidas:
-  - ✅ Vou
-  - ❔ Talvez
-  - ❌ Não vou
-- Sistema de vagas.
-- Fila automática quando a party está cheia.
-- Painel de gerenciamento privado para host/staff.
-- Edição e encerramento de parties.
-- Canal de convites configurável por servidor.
-- Canal de logs configurável por servidor.
-- Cargo Host configurável.
-- Cargo Staff configurável.
-- Opção para permitir que todos criem parties.
-- Opção para marcar `@everyone` ao criar party.
-- Suporte a imagem por link.
-- Suporte a horários com timestamps do Discord.
-- Mostra quanto falta para começar, quando começou, quando termina e a duração.
-- Configuração de fuso horário por servidor.
-- Suporte a múltiplos servidores.
-- Idiomas:
-  - Português do Brasil
+- Party Hub with interactive buttons.
+- Party creation through Discord modals/forms.
+- Quick response buttons:
+  - ✅ Going
+  - ❔ Maybe
+  - ❌ Not going
+- Slot/capacity system.
+- Automatic queue when a party is full.
+- Private management panel for hosts and staff.
+- Edit and close parties.
+- Per-server invite channel.
+- Per-server log channel.
+- Configurable Host role.
+- Configurable Staff role.
+- Option to allow everyone to create parties.
+- Optional `@everyone` mention when creating a party.
+- Image support through links.
+- Discord timestamp support.
+- Shows when a party starts, started, ends, ended and its duration.
+- Per-server timezone configuration.
+- Multi-server support.
+- Languages:
   - English
-- Salvamento em JSON.
-- Suporte a `DATA_DIR` para usar volume persistente em hospedagens como Railway.
+  - Portuguese (Brazil)
+- JSON persistence.
+- `DATA_DIR` support for persistent volumes on hosting platforms such as Railway.
 
-## 🎮 Como funciona
+## 🎮 How it works
 
-A staff cria um Hub com:
+Staff creates a Hub with:
 
 ```txt
 /party hub
 ```
 
-Depois os membros usam o botão **Criar Party**.
+Members can then click **Create Party**.
 
-O bot abre um formulário com:
+The bot opens a form with:
 
-- Título da party
-- Número de vagas
-- Horário
-- Descrição
-- Link de imagem
+- Party title
+- Number of slots
+- Time
+- Description
+- Image link
 
-Depois disso, o convite aparece no canal configurado.
+After submitting, the invite is posted in the configured invite channel.
 
-Exemplo de convite:
+Example party invite:
 
 ```txt
-🎮 Lego Party - 4 Jogadores
+🎮 Lego Party - 4 Players
 
-Horário
-Hoje 18:30 - 20:30
-Começa em 2 horas
-Duração: 2h
+Time
+Today 18:30 - 20:30
+Starts in 2 hours
+Duration: 2h
 
-✅ Vou (1/4)
-❔ Talvez (0/4)
-❌ Não vou (0)
+✅ Going (1/4)
+❔ Maybe (0/4)
+❌ Not going (0)
 
-Status: Aberta
-Organizador: @usuario
+Status: Open
+Host: @user
 ```
 
-## 🧩 Comandos
+## 🧩 Commands
 
 ### `/party hub`
 
-Cria o Hub de Parties no canal atual.
+Creates the Party Hub in the current channel.
 
-Apenas staff ou usuários com permissão **Gerenciar servidor** podem usar.
+Only staff members or users with **Manage Server** permission can use it.
 
 ### `/party config`
 
-Abre o painel de configuração do servidor.
+Opens the server configuration panel.
 
-Permite configurar:
+You can configure:
 
-- Canal de convites
-- Canal de logs
-- Cargo Host
-- Cargo Staff
-- Idioma
-- Fuso horário
-- Cor do embed
-- Ping `@everyone`
-- Se todos podem criar parties
+- Invite channel
+- Log channel
+- Host role
+- Staff role
+- Language
+- Timezone
+- Embed color
+- `@everyone` ping
+- Whether everyone can create parties
 
 ### `/party lista`
 
-Lista as parties abertas no servidor atual.
+Lists open parties in the current server.
 
 ### `/party limpar`
 
-Remove do banco as parties encerradas do servidor atual.
+Removes closed parties from the local database for the current server.
 
-## ⚙️ Configuração inicial
+## ⚙️ Initial setup
 
-Depois de adicionar o bot ao servidor, use:
+After adding the bot to a server, run:
 
 ```txt
 /party config
@@ -113,68 +113,70 @@ Depois de adicionar o bot ao servidor, use:
 
 Configure:
 
-1. Canal de convites
-2. Canal de logs
-3. Cargo Host
-4. Cargo Staff
-5. Idioma
-6. Fuso horário
+1. Invite channel
+2. Log channel
+3. Host role
+4. Staff role
+5. Language
+6. Timezone
 
-Depois vá até o canal onde deseja deixar o Hub e use:
+Then go to the channel where you want the Hub and run:
 
 ```txt
 /party hub
 ```
 
-## 🔐 Permissões recomendadas
+## 🔐 Recommended permissions
 
-O bot precisa das permissões:
+The bot needs:
 
-- Ver canais
-- Enviar mensagens
-- Ler histórico de mensagens
-- Inserir links
-- Usar comandos de aplicativo
-- Mencionar `@everyone`, opcional
+- View Channels
+- Send Messages
+- Read Message History
+- Embed Links
+- Use Application Commands
+- Mention `@everyone`, optional
 
-Para canais privados, adicione o cargo do bot nas permissões do canal.
+For private channels, add the bot role to the channel permissions.
 
-## 🌎 Idiomas
+## 🌎 Languages
 
-O bot possui suporte para:
+The bot supports:
 
-- `pt-BR` — Português do Brasil
 - `en-US` — English
+- `pt-BR` — Portuguese (Brazil)
 
-O idioma pode ser alterado por servidor no painel de configuração.
+The language can be changed per server in the configuration panel.
 
-## 🕒 Horários suportados
+## 🕒 Supported time formats
 
-O campo de horário aceita exemplos como:
+The time field accepts examples such as:
 
 ```txt
-hoje 18:30
-amanhã 19:00
+today 18:30
+tomorrow 19:00
 08/05/2026 18:30
 08/05/2026 18:30 - 20:30
 08/05/2026 18:30 - 09/05/2026 01:00
 ```
 
-Quando o horário é reconhecido, o bot mostra timestamps automáticos do Discord, como:
+When the time is recognized, the bot displays automatic Discord timestamps, such as:
 
-- Começa em X horas
-- Começou há X minutos
-- Termina em X horas
-- Terminou há X minutos
-- Duração da party
+- Starts in X hours
+- Started X minutes ago
+- Ends in X hours
+- Ended X minutes ago
+- Party duration
 
-## 🗂️ Arquivos principais
+## 🗂️ Main files
 
 ```txt
 bot.py
-config.json
-parties.json
+config.example.json
+parties.example.json
 requirements.txt
+README.md
+LICENSE
 ```
 
 ## 📦 requirements.txt
@@ -183,9 +185,9 @@ requirements.txt
 discord.py>=2.4.0
 ```
 
-## 🔧 config.json
+## 🔧 config.example.json
 
-Modelo recomendado:
+Recommended example:
 
 ```json
 {
@@ -194,74 +196,74 @@ Modelo recomendado:
 }
 ```
 
-O token não deve ser colocado no GitHub. Use variável de ambiente.
+Do not publish your real token. Use an environment variable instead.
 
-## 🚀 Hospedagem no Railway
+## 🚀 Hosting on Railway
 
-No Railway, configure as variáveis:
+On Railway, configure this variable:
 
 ```txt
-DISCORD_TOKEN=SEU_TOKEN_DO_BOT
+DISCORD_TOKEN=YOUR_BOT_TOKEN
 ```
 
-Opcional, mas recomendado para persistência:
+Optional, but recommended for persistence:
 
 ```txt
 DATA_DIR=/data
 ```
 
-Se usar `DATA_DIR=/data`, crie um Volume no Railway montado em:
+If you use `DATA_DIR=/data`, create a Railway Volume mounted at:
 
 ```txt
 /data
 ```
 
-Assim o bot salva configurações e parties em um local persistente.
+This allows the bot to keep server configuration and party data after redeploys.
 
-## ▶️ Start Command
+## ▶️ Start command
 
 ```bash
 python bot.py
 ```
 
-## 🔒 Segurança
+## 🔒 Security
 
-Nunca publique o token do bot no GitHub.
+Never publish your bot token on GitHub.
 
-Use variável de ambiente:
+Use the environment variable:
 
 ```txt
 DISCORD_TOKEN
 ```
 
-Se o token vazar, gere outro imediatamente no Discord Developer Portal.
+If your token leaks, reset it immediately in the Discord Developer Portal.
 
 ## 📝 Logs
 
-Quando configurado, o canal de logs registra ações como:
+When configured, the log channel records actions such as:
 
-- Party criada
-- Usuário marcou Vou
-- Usuário marcou Talvez
-- Usuário marcou Não vou
-- Usuário entrou na fila
-- Party editada
-- Party encerrada
-- Configurações alteradas
+- Party created
+- User marked Going
+- User marked Maybe
+- User marked Not going
+- User joined the queue
+- Party edited
+- Party closed
+- Configuration changed
 
-## 👥 Multi-servidor
+## 👥 Multi-server support
 
-O bot salva configurações separadas para cada servidor.
+The bot stores separate settings for each server.
 
-Cada servidor pode ter:
+Each server can have its own:
 
-- Canal de convites próprio
-- Canal de logs próprio
-- Cargo Host próprio
-- Cargo Staff próprio
-- Idioma próprio
-- Fuso horário próprio
-- Cor de embed própria
+- Invite channel
+- Log channel
+- Host role
+- Staff role
+- Language
+- Timezone
+- Embed color
 
 ## 💜 Supporters
 
@@ -269,37 +271,31 @@ Thanks to everyone supporting this project!
 
 ### Project Boosters
 
-
-
-<!-- $30 supporters here -->
+<!-- Add $30 supporters here -->
 
 ### Community Supporters
 
-
-
-<!-- $15 supporters here -->
+<!-- Add $15 supporters here -->
 
 ### Supporters
 
+<!-- Add $5 supporters here -->
 
+## 📌 Project status
 
-<!-- $5 supporters here -->
+In active development.
 
-## 📌 Status do projeto
+## 💡 Future ideas
 
-Em desenvolvimento ativo.
+- PostgreSQL database.
+- Automatic party expiration.
+- Temporary voice channel creation.
+- Game templates/presets.
+- Web dashboard.
+- Party history.
+- Participation ranking.
+- Automatic reminders before the scheduled time.
 
-## 💡 Ideias futuras
+## 📄 License
 
-- Banco de dados PostgreSQL.
-- Expiração automática de parties.
-- Criação automática de canal de voz temporário.
-- Templates/presets de jogos.
-- Dashboard web.
-- Histórico de parties.
-- Ranking de participação.
-- Notificações automáticas antes do horário marcado.
-
-## 📄 Licença
-
-Este projeto está licenciado sob a licença MIT.
+This project is licensed under the MIT License.
