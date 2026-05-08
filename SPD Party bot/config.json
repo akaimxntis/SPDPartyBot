@@ -1,12 +1,4 @@
 {
   "token": "",
-  "guild_id": 1206686303446372363,
-
-  "party_channel_id": 0,
-  "log_channel_id": 0,
-
-  "host_role_id": 0,
-  "staff_role_id": 0,
-
-  "embed_color": 16766720
+  "guilds": {}
 }
