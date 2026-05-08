@@ -22,6 +22,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_PATH = DATA_DIR / "config.json"
 PARTIES_PATH = DATA_DIR / "parties.json"
 
+DEFAULT_VOICE_CATEGORY_ID = int(os.getenv("DEFAULT_VOICE_CATEGORY_ID", "1206686304226517007"))
+
 DEFAULT_GUILD_CONFIG = {
     "party_channel_id": 0,
     "log_channel_id": 0,
@@ -40,6 +42,7 @@ DEFAULT_GUILD_CONFIG = {
     "embed_theme": "spd",
     "default_image_url": "",
     "saved_images": [],
+    "voice_category_id": DEFAULT_VOICE_CATEGORY_ID,
 }
 
 DEFAULT_CONFIG = {
@@ -213,7 +216,17 @@ I18N = {
         "marked_going": "Você marcou **Vou**.",
         "marked_maybe": "Você marcou **Talvez**.",
         "marked_no": "Você marcou **Não vou**.",
+        "unmarked_going": "Você saiu de **Vou**.",
+        "unmarked_maybe": "Você saiu de **Talvez**.",
+        "unmarked_no": "Você saiu de **Não vou**.",
+        "unmarked_queue": "Você saiu da **fila**.",
         "queue_joined": "A party está cheia. Você entrou na **fila**.",
+        "create_voice": "Criar call",
+        "voice_created": "🔊 Call criada para a party: {channel}",
+        "voice_already_created": "Essa party já tem uma call: {channel}",
+        "voice_create_failed": "⚠️ Não consegui criar a call. Confira se tenho **Gerenciar canais** e **Gerenciar cargos**, e se meu cargo está alto na hierarquia.",
+        "voice_delete_waiting": "⏳ A party acabou, mas ainda tem gente na call. Vou apagar quando todos saírem.",
+        "voice_deleted": "🧹 Call da party removida.",
         "promoted": "\n{user} foi puxado da fila.",
         "btn_going": "Vou",
         "btn_maybe": "Talvez",
@@ -398,7 +411,17 @@ I18N = {
         "marked_going": "You marked **Going**.",
         "marked_maybe": "You marked **Maybe**.",
         "marked_no": "You marked **Not going**.",
+        "unmarked_going": "You left **Going**.",
+        "unmarked_maybe": "You left **Maybe**.",
+        "unmarked_no": "You left **Not going**.",
+        "unmarked_queue": "You left the **queue**.",
         "queue_joined": "The party is full. You joined the **queue**.",
+        "create_voice": "Create call",
+        "voice_created": "🔊 Party call created: {channel}",
+        "voice_already_created": "This party already has a call: {channel}",
+        "voice_create_failed": "⚠️ I could not create the call. Check if I have **Manage Channels** and **Manage Roles**, and if my role is high enough.",
+        "voice_delete_waiting": "⏳ The party ended, but people are still in the call. I will delete it when everyone leaves.",
+        "voice_deleted": "🧹 Party call removed.",
         "promoted": "\n{user} was promoted from the queue.",
         "btn_going": "Going",
         "btn_maybe": "Maybe",
@@ -580,6 +603,16 @@ def normalize_parties():
         if "reminder_sent" not in data:
             data["reminder_sent"] = False
             changed = True
+        for voice_key in ("voice_channel_id", "voice_role_id"):
+            if voice_key not in data:
+                data[voice_key] = 0
+                changed = True
+        if "voice_created" not in data:
+            data["voice_created"] = False
+            changed = True
+        if "voice_delete_pending" not in data:
+            data["voice_delete_pending"] = False
+            changed = True
 
     if changed:
         save_json(PARTIES_PATH, parties)
@@ -592,6 +625,7 @@ TOKEN = os.getenv("DISCORD_TOKEN") or config.get("token")
 intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
+intents.voice_states = True
 
 bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents)
 _commands_synced = False
@@ -1289,6 +1323,10 @@ class CreatePartyModal(discord.ui.Modal):
             "end_ts": end_ts,
             "created_ts": int(datetime.now(timezone.utc).timestamp()),
             "reminder_sent": False,
+            "voice_channel_id": 0,
+            "voice_role_id": 0,
+            "voice_created": False,
+            "voice_delete_pending": False,
             "description": str(self.description.value).strip(),
             "image_url": image,
             "accepted": [member.id],
@@ -1398,9 +1436,10 @@ class ManagePartyView(discord.ui.View):
         self.party_id = party_id
         guild_id = int(parties.get(party_id, {}).get("guild_id", 0) or 0)
         self.edit_party.label = tr(guild_id, "edit_party")
+        self.create_voice.label = tr(guild_id, "create_voice")
         self.close_party.label = tr(guild_id, "close_party")
 
-    @discord.ui.button(label="Editar Party", emoji="✏️", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Editar Party", emoji="✏️", style=discord.ButtonStyle.primary, row=0)
     async def edit_party(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild_id = guild_id_from_interaction(interaction)
         data = parties.get(self.party_id)
@@ -1415,7 +1454,27 @@ class ManagePartyView(discord.ui.View):
 
         await interaction.response.send_modal(EditPartyModal(self.party_id))
 
-    @discord.ui.button(label="Encerrar Party", emoji="🔒", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Criar call", emoji="🔊", style=discord.ButtonStyle.success, row=0)
+    async def create_voice(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild_id = guild_id_from_interaction(interaction)
+        data = parties.get(self.party_id)
+        if not data:
+            await interaction.response.send_message(tr(guild_id, "party_missing"), ephemeral=True)
+            return
+
+        member = interaction.user
+        if not isinstance(member, discord.Member) or not can_manage_party(member, data):
+            await interaction.response.send_message(tr(guild_id, "only_host_staff_manage"), ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        ok = await create_party_voice_resources(self.party_id, data, announce=True)
+        if ok:
+            await interaction.followup.send("✅", ephemeral=True)
+        else:
+            await interaction.followup.send(tr(guild_id, "voice_create_failed"), ephemeral=True)
+
+    @discord.ui.button(label="Encerrar Party", emoji="🔒", style=discord.ButtonStyle.danger, row=0)
     async def close_party(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild_id = guild_id_from_interaction(interaction)
         data = parties.get(self.party_id)
@@ -1435,6 +1494,7 @@ class ManagePartyView(discord.ui.View):
         data["status"] = "closed"
         save_parties()
         await update_party_message(self.party_id)
+        await cleanup_party_voice_resources(self.party_id, data, wait_if_occupied=True)
         await interaction.response.send_message(tr(guild_id, "party_closed"), ephemeral=True)
         await log_action(interaction.guild, f"🔒 <@{member.id}> encerrou a party **{data['title']}** `{self.party_id}`.")
 
@@ -1481,23 +1541,57 @@ class PartyView(discord.ui.View):
 
         user_id = interaction.user.id
         capacity = int(data.get("capacity", 4))
+        guild = interaction.guild
+
+        # Clicar novamente em Vou remove da lista. Se havia fila, puxa o próximo.
         if user_id in data.get("accepted", []):
-            await interaction.response.send_message(tr(guild_id, "already_going"), ephemeral=True)
+            data["accepted"].remove(user_id)
+            promoted = promote_from_queue(data)
+            save_parties()
+
+            if guild:
+                await set_party_voice_role_for_user(guild, data, user_id, False)
+                if promoted:
+                    await set_party_voice_role_for_user(guild, data, promoted, True)
+
+            msg = tr(guild_id, "unmarked_going")
+            if promoted:
+                msg += tr(guild_id, "promoted", user=f"<@{promoted}>")
+
+            await interaction.response.send_message(msg, ephemeral=True)
+            await log_action(guild, f"↩️ <@{user_id}> saiu de Vou na party **{data['title']}** `{party_id}`.")
+            await update_party_message(party_id)
+            return
+
+        # Se estava na fila e apertou Vou de novo, sai da fila.
+        if user_id in data.get("queue", []):
+            data["queue"].remove(user_id)
+            save_parties()
+            await interaction.response.send_message(tr(guild_id, "unmarked_queue"), ephemeral=True)
+            await log_action(guild, f"↩️ <@{user_id}> saiu da fila da party **{data['title']}** `{party_id}`.")
+            await update_party_message(party_id)
             return
 
         clean_user_from_party(data, user_id)
+        give_voice_role = False
+
         if len(data["accepted"]) < capacity:
             data["accepted"].append(user_id)
             msg = tr(guild_id, "marked_going")
             log_msg = f"✅ <@{user_id}> marcou Vou na party **{data['title']}** `{party_id}`."
+            give_voice_role = True
         else:
             data["queue"].append(user_id)
             msg = tr(guild_id, "queue_joined")
             log_msg = f"📋 <@{user_id}> entrou na fila da party **{data['title']}** `{party_id}`."
 
         save_parties()
+
+        if guild:
+            await set_party_voice_role_for_user(guild, data, user_id, give_voice_role)
+
         await interaction.response.send_message(msg, ephemeral=True)
-        await log_action(interaction.guild, log_msg)
+        await log_action(guild, log_msg)
         await update_party_message(party_id)
 
     @discord.ui.button(emoji="❔", label="Talvez", style=discord.ButtonStyle.primary, custom_id="party:tentative")
@@ -1513,8 +1607,15 @@ class PartyView(discord.ui.View):
             return
 
         user_id = interaction.user.id
+        guild = interaction.guild
+
+        # Clicar novamente em Talvez remove da lista.
         if user_id in data.get("tentative", []):
-            await interaction.response.send_message(tr(guild_id, "already_maybe"), ephemeral=True)
+            data["tentative"].remove(user_id)
+            save_parties()
+            await interaction.response.send_message(tr(guild_id, "unmarked_maybe"), ephemeral=True)
+            await log_action(guild, f"↩️ <@{user_id}> saiu de Talvez na party **{data['title']}** `{party_id}`.")
+            await update_party_message(party_id)
             return
 
         was_accepted = user_id in data.get("accepted", [])
@@ -1523,12 +1624,17 @@ class PartyView(discord.ui.View):
         promoted = promote_from_queue(data) if was_accepted else None
         save_parties()
 
+        if guild:
+            await set_party_voice_role_for_user(guild, data, user_id, False)
+            if promoted:
+                await set_party_voice_role_for_user(guild, data, promoted, True)
+
         msg = tr(guild_id, "marked_maybe")
         if promoted:
             msg += tr(guild_id, "promoted", user=f"<@{promoted}>")
 
         await interaction.response.send_message(msg, ephemeral=True)
-        await log_action(interaction.guild, f"❔ <@{user_id}> marcou Talvez na party **{data['title']}** `{party_id}`.")
+        await log_action(guild, f"❔ <@{user_id}> marcou Talvez na party **{data['title']}** `{party_id}`.")
         await update_party_message(party_id)
 
     @discord.ui.button(emoji="❌", label="Não vou", style=discord.ButtonStyle.danger, custom_id="party:declined")
@@ -1544,8 +1650,15 @@ class PartyView(discord.ui.View):
             return
 
         user_id = interaction.user.id
+        guild = interaction.guild
+
+        # Clicar novamente em Não vou remove da lista.
         if user_id in data.get("declined", []):
-            await interaction.response.send_message(tr(guild_id, "already_no"), ephemeral=True)
+            data["declined"].remove(user_id)
+            save_parties()
+            await interaction.response.send_message(tr(guild_id, "unmarked_no"), ephemeral=True)
+            await log_action(guild, f"↩️ <@{user_id}> saiu de Não vou na party **{data['title']}** `{party_id}`.")
+            await update_party_message(party_id)
             return
 
         was_accepted = user_id in data.get("accepted", [])
@@ -1554,12 +1667,17 @@ class PartyView(discord.ui.View):
         promoted = promote_from_queue(data) if was_accepted else None
         save_parties()
 
+        if guild:
+            await set_party_voice_role_for_user(guild, data, user_id, False)
+            if promoted:
+                await set_party_voice_role_for_user(guild, data, promoted, True)
+
         msg = tr(guild_id, "marked_no")
         if promoted:
             msg += tr(guild_id, "promoted", user=f"<@{promoted}>")
 
         await interaction.response.send_message(msg, ephemeral=True)
-        await log_action(interaction.guild, f"❌ <@{user_id}> marcou Não vou na party **{data['title']}** `{party_id}`.")
+        await log_action(guild, f"❌ <@{user_id}> marcou Não vou na party **{data['title']}** `{party_id}`.")
         await update_party_message(party_id)
 
     @discord.ui.button(emoji="⚙️", label="Gerenciar", style=discord.ButtonStyle.secondary, custom_id="party:manage")
@@ -1581,6 +1699,7 @@ class PartyView(discord.ui.View):
             color=guild_color(guild_id),
         )
         await interaction.response.send_message(embed=embed, view=ManagePartyView(party_id), ephemeral=True)
+
 
 
 # ============================================================
@@ -2340,6 +2459,224 @@ class AppearanceConfigView(discord.ui.View):
 # ============================================================
 
 
+
+def safe_voice_channel_name(data: Dict[str, Any]) -> str:
+    title = str(data.get("title", "Party")).strip() or "Party"
+    title = re.sub(r"[\n\r\t]+", " ", title)
+    title = re.sub(r"\s+", " ", title)
+    title = re.sub(r"[#:@`*/\\<>|]", "", title).strip() or "Party"
+    return f"Jogando┇🎮 {title}"[:100]
+
+
+def safe_party_role_name(data: Dict[str, Any]) -> str:
+    title = str(data.get("title", "Party")).strip() or "Party"
+    title = re.sub(r"[\n\r\t]+", " ", title)
+    title = re.sub(r"\s+", " ", title)
+    title = re.sub(r"[^0-9A-Za-zÀ-ÿ _\\-]", "", title).strip() or "Party"
+    return f"SPD Party ┇ {title}"[:90]
+
+
+def party_voice_members(data: Dict[str, Any]) -> set:
+    members = set()
+    host_id = int(data.get("host_id", 0) or 0)
+    if host_id:
+        members.add(host_id)
+    for user_id in data.get("accepted", []):
+        try:
+            members.add(int(user_id))
+        except (TypeError, ValueError):
+            pass
+    return members
+
+
+def voice_resources_configured(data: Dict[str, Any]) -> bool:
+    return bool(int(data.get("voice_channel_id", 0) or 0) or int(data.get("voice_role_id", 0) or 0))
+
+
+async def get_party_voice_category(guild: discord.Guild, data: Dict[str, Any]):
+    guild_conf = get_guild_config(guild.id)
+    category_id = int(guild_conf.get("voice_category_id", DEFAULT_VOICE_CATEGORY_ID) or DEFAULT_VOICE_CATEGORY_ID)
+    category = guild.get_channel(category_id)
+    if isinstance(category, discord.CategoryChannel):
+        return category
+
+    base_channel = await fetch_messageable_channel(int(data.get("channel_id", 0) or 0))
+    return getattr(base_channel, "category", None)
+
+
+async def set_party_voice_role_for_user(guild: Optional[discord.Guild], data: Dict[str, Any], user_id: int, give: bool):
+    if not guild:
+        return
+
+    role_id = int(data.get("voice_role_id", 0) or 0)
+    if not role_id:
+        return
+
+    role = guild.get_role(role_id)
+    member = guild.get_member(int(user_id))
+    if not role or not member:
+        return
+
+    try:
+        if give and role not in member.roles:
+            await member.add_roles(role, reason="SPD Party voice access")
+        elif not give and role in member.roles:
+            await member.remove_roles(role, reason="SPD Party voice access removed")
+    except discord.HTTPException:
+        pass
+
+
+async def sync_party_voice_role_members(guild: Optional[discord.Guild], data: Dict[str, Any]):
+    if not guild:
+        return
+
+    role_id = int(data.get("voice_role_id", 0) or 0)
+    if not role_id:
+        return
+
+    role = guild.get_role(role_id)
+    if not role:
+        return
+
+    allowed = party_voice_members(data)
+
+    for user_id in allowed:
+        await set_party_voice_role_for_user(guild, data, user_id, True)
+
+    for member in list(role.members):
+        if member.id not in allowed:
+            await set_party_voice_role_for_user(guild, data, member.id, False)
+
+
+async def create_party_voice_resources(party_id: str, data: Dict[str, Any], announce: bool = True) -> bool:
+    guild_id = int(data.get("guild_id", 0) or 0)
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return False
+
+    existing_channel_id = int(data.get("voice_channel_id", 0) or 0)
+    existing_channel = guild.get_channel(existing_channel_id) if existing_channel_id else None
+    if isinstance(existing_channel, discord.VoiceChannel):
+        await sync_party_voice_role_members(guild, data)
+        if announce:
+            await send_party_channel_message(data, tr(guild_id, "voice_already_created", channel=existing_channel.mention))
+        return True
+
+    me = guild.me or (bot.user and guild.get_member(bot.user.id))
+    if not me:
+        return False
+
+    role = None
+    channel = None
+
+    try:
+        role = await guild.create_role(
+            name=safe_party_role_name(data),
+            mentionable=False,
+            reason="SPD Party automatic voice role",
+        )
+
+        try:
+            await role.edit(position=max(1, me.top_role.position - 1), reason="SPD Party voice role position")
+        except discord.HTTPException:
+            pass
+
+        category = await get_party_voice_category(guild, data)
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False, connect=False),
+            role: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True, stream=True),
+            me: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True, manage_channels=True, manage_roles=True),
+        }
+
+        channel = await guild.create_voice_channel(
+            name=safe_voice_channel_name(data),
+            category=category,
+            overwrites=overwrites,
+            reason="SPD Party automatic voice channel",
+        )
+
+        data["voice_role_id"] = role.id
+        data["voice_channel_id"] = channel.id
+        data["voice_created"] = True
+        data["voice_delete_pending"] = False
+        save_parties()
+
+        await sync_party_voice_role_members(guild, data)
+
+        if announce:
+            await send_party_channel_message(data, tr(guild_id, "voice_created", channel=channel.mention))
+        await log_action(guild, f"🔊 Call criada para a party **{data.get('title', 'Party')}** `{party_id}` em {channel.mention}")
+        return True
+
+    except discord.HTTPException:
+        try:
+            if channel:
+                await channel.delete(reason="SPD Party voice setup failed")
+        except discord.HTTPException:
+            pass
+        try:
+            if role:
+                await role.delete(reason="SPD Party voice setup failed")
+        except discord.HTTPException:
+            pass
+
+        data["voice_channel_id"] = 0
+        data["voice_role_id"] = 0
+        data["voice_created"] = False
+        data["voice_delete_pending"] = False
+        save_parties()
+
+        if announce:
+            await send_party_channel_message(data, tr(guild_id, "voice_create_failed"))
+        await log_action(guild, f"⚠️ Falha ao criar call/cargo da party **{data.get('title', 'Party')}** `{party_id}`.")
+        return False
+
+
+async def cleanup_party_voice_resources(party_id: str, data: Dict[str, Any], wait_if_occupied: bool = True) -> bool:
+    guild_id = int(data.get("guild_id", 0) or 0)
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return False
+
+    channel_id = int(data.get("voice_channel_id", 0) or 0)
+    role_id = int(data.get("voice_role_id", 0) or 0)
+
+    channel = guild.get_channel(channel_id) if channel_id else None
+    role = guild.get_role(role_id) if role_id else None
+
+    if channel and isinstance(channel, discord.VoiceChannel) and channel.members and wait_if_occupied:
+        if not data.get("voice_delete_pending", False):
+            data["voice_delete_pending"] = True
+            save_parties()
+            await send_party_channel_message(data, tr(guild_id, "voice_delete_waiting"))
+        return False
+
+    try:
+        if channel:
+            await channel.delete(reason="SPD Party ended")
+    except discord.HTTPException:
+        return False
+
+    try:
+        if role:
+            await role.delete(reason="SPD Party ended")
+    except discord.HTTPException:
+        pass
+
+    if channel_id or role_id or data.get("voice_delete_pending"):
+        data["voice_channel_id"] = 0
+        data["voice_role_id"] = 0
+        data["voice_created"] = False
+        data["voice_delete_pending"] = False
+        save_parties()
+        await send_party_channel_message(data, tr(guild_id, "voice_deleted"))
+        await log_action(guild, f"🧹 Call/cargo removidos da party **{data.get('title', 'Party')}** `{party_id}`.")
+
+    return True
+
+
+
 def party_jump_url(data: Dict[str, Any]) -> str:
     guild_id = int(data.get("guild_id", 0) or 0)
     channel_id = int(data.get("channel_id", 0) or 0)
@@ -2379,6 +2716,7 @@ async def auto_close_party(party_id: str, data: Dict[str, Any], reason_key: str)
     save_parties()
     await update_party_message(party_id)
     await send_party_channel_message(data, tr(guild_id, reason_key, title=data.get("title", "Party")))
+    await cleanup_party_voice_resources(party_id, data, wait_if_occupied=True)
     guild = bot.get_guild(guild_id)
     await log_action(guild, tr(guild_id, "log_party_auto_closed", title=data.get("title", "Party"), party_id=party_id))
 
@@ -2468,13 +2806,24 @@ async def party_maintenance_loop():
     changed = False
 
     for party_id, data in list(parties.items()):
-        if not isinstance(data, dict) or data.get("status") != "open":
+        if not isinstance(data, dict):
             continue
 
         guild_id = int(data.get("guild_id", 0) or 0)
+
+        # Se a party já fechou e a call ficou ocupada, tenta apagar quando ficar vazia.
+        if data.get("status") != "open":
+            if data.get("voice_delete_pending") or voice_resources_configured(data):
+                await cleanup_party_voice_resources(party_id, data, wait_if_occupied=True)
+            continue
+
         guild_conf = get_guild_config(guild_id)
         start_ts = int(data.get("start_ts", 0) or 0)
         end_ts = int(data.get("end_ts", 0) or 0)
+
+        # Cria a call quando chegar o horário da party.
+        if start_ts and now_ts >= start_ts and not data.get("voice_created", False):
+            await create_party_voice_resources(party_id, data, announce=True)
 
         if guild_conf.get("reminder_enabled", True) and start_ts and not data.get("reminder_sent", False):
             reminder_minutes = int(guild_conf.get("reminder_minutes", 15) or 15)
@@ -2506,6 +2855,7 @@ async def party_maintenance_loop():
 
     if changed:
         save_parties()
+
 
 
 @party_maintenance_loop.before_loop
@@ -2687,6 +3037,32 @@ async def party_limpar(interaction: discord.Interaction):
 
 
 bot.tree.add_command(party_group)
+
+
+
+@bot.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    # Quando a party já acabou, o bot espera a call ficar vazia antes de apagar.
+    checked_channels = set()
+
+    if before and before.channel:
+        checked_channels.add(before.channel.id)
+    if after and after.channel:
+        checked_channels.add(after.channel.id)
+
+    if not checked_channels:
+        return
+
+    for party_id, data in list(parties.items()):
+        if not isinstance(data, dict):
+            continue
+        if int(data.get("voice_channel_id", 0) or 0) not in checked_channels:
+            continue
+        if data.get("status") == "open":
+            continue
+        if data.get("voice_delete_pending") or voice_resources_configured(data):
+            await cleanup_party_voice_resources(party_id, data, wait_if_occupied=True)
+
 
 
 if not TOKEN or TOKEN in ("COLE_SEU_TOKEN_AQUI", "SEU_TOKEN", "COLOQUE_SEU_TOKEN_AQUI"):
