@@ -1,0 +1,97 @@
+{
+  "43370ddf": {
+    "id": "43370ddf",
+    "guild_id": 1206686303446372363,
+    "channel_id": 1206686304008667190,
+    "message_id": 1502123976602943599,
+    "host_id": 276443257591037967,
+    "game": "Lego Party",
+    "capacity": 4,
+    "description": "Jogatinas jogatisticas",
+    "time": "18:30",
+    "players": [],
+    "tentative": [],
+    "queue": [],
+    "status": "open"
+  },
+  "ddaf94f5": {
+    "id": "ddaf94f5",
+    "guild_id": 1206686303446372363,
+    "channel_id": 1500040170714693643,
+    "message_id": 1502129032341225585,
+    "host_id": 276443257591037967,
+    "host_name": "akai",
+    "title": "LEGO Party",
+    "capacity": 4,
+    "time": "18:30 - 20:30",
+    "description": "Jogatinas jogatisticas",
+    "image_url": "https://static.wikia.nocookie.net/logopedia/images/d/d7/Lego_Party%21_Logo.png/revision/latest/scale-to-width-down/1000?cb=20250607074655",
+    "accepted": [
+      276443257591037967
+    ],
+    "tentative": [],
+    "declined": [],
+    "queue": [],
+    "status": "closed"
+  },
+  "ac51fd4c": {
+    "id": "ac51fd4c",
+    "guild_id": 1206686303446372363,
+    "channel_id": 1500040170714693643,
+    "message_id": 1502129628376993955,
+    "host_id": 276443257591037967,
+    "host_name": "akai",
+    "title": "LEGO Party",
+    "capacity": 4,
+    "time": "18:30 - 20:30",
+    "description": "Jogatinas",
+    "image_url": "https://static.wikia.nocookie.net/logopedia/images/d/d7/Lego_Party%21_Logo.png/revision/latest/scale-to-width-down/1000?cb=20250607074655",
+    "accepted": [
+      276443257591037967
+    ],
+    "tentative": [],
+    "declined": [],
+    "queue": [],
+    "status": "closed"
+  },
+  "4cff0542": {
+    "id": "4cff0542",
+    "guild_id": 1206686303446372363,
+    "channel_id": 1500040170714693643,
+    "message_id": 1502134847983063121,
+    "host_id": 276443257591037967,
+    "host_name": "akai",
+    "title": "LEGO Party",
+    "capacity": 4,
+    "time": "18:30 - 20:30",
+    "description": "",
+    "image_url": "https://static.wikia.nocookie.net/logopedia/images/d/d7/Lego_Party%21_Logo.png/revision/latest/scale-to-width-down/1000?cb=20250607074655",
+    "accepted": [
+      276443257591037967
+    ],
+    "tentative": [],
+    "declined": [],
+    "queue": [],
+    "status": "open"
+  },
+  "e318386b": {
+    "id": "e318386b",
+    "guild_id": 1206686303446372363,
+    "channel_id": 1500040170714693643,
+    "message_id": 1502134903444209755,
+    "host_id": 276443257591037967,
+    "host_name": "akai",
+    "title": "LEGO Party",
+    "capacity": 4,
+    "time": "18:30 - 20:30",
+    "description": "",
+    "image_url": "https://static.wikia.nocookie.net/logopedia/images/d/d7/Lego_Party%21_Logo.png/revision/latest/scale-to-width-down/1000?cb=20250607074655",
+    "accepted": [
+      276443257591037967
+    ],
+    "tentative": [],
+    "declined": [],
+    "queue": [],
+    "status": "open"
+  }
+}

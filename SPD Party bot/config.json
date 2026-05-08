@@ -1,0 +1,12 @@
+{
+  "token": "",
+  "guild_id": SEU_ID_DO_SERVIDOR,
+
+  "party_channel_id": 0,
+  "log_channel_id": 0,
+
+  "host_role_id": 0,
+  "staff_role_id": 0,
+
+  "embed_color": 16766720
+}
