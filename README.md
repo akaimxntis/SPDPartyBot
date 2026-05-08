@@ -1,47 +1,49 @@
 # SPD Party Bot
 
-SPD Party Bot is an open source Discord bot for organizing gaming parties, squads and quick community events.
+[Português do Brasil](README.pt-BR.md)
 
-Authorized members can create party invites through an interactive form, set slots, time, description and image, and let players respond with buttons such as **Going**, **Maybe** and **Not going**. When a party is full, the bot automatically adds new participants to a queue.
+SPD Party Bot is a Discord bot for organizing gaming parties, squads and quick events in community servers.
+
+Authorized members can create party invites through an interactive form, define slots, time, description and image URL. Players can respond with interactive buttons such as **Going**, **Maybe** and **Not going**. When a party is full, the bot automatically places new participants in a queue.
 
 ## ✨ Features
 
 - Party Hub with interactive buttons.
 - Party creation through Discord modals/forms.
-- Quick response buttons:
+- Quick responses:
   - ✅ Going
   - ❔ Maybe
   - ❌ Not going
 - Slot/capacity system.
-- Automatic queue when a party is full.
+- Automatic queue when the party is full.
 - Private management panel for hosts and staff.
 - Edit and close parties.
-- Per-server invite channel.
-- Per-server log channel.
+- Configurable invite channel per server.
+- Configurable log channel per server.
 - Configurable Host role.
 - Configurable Staff role.
 - Option to allow everyone to create parties.
 - Optional `@everyone` mention when creating a party.
-- Image support through links.
-- Discord timestamp support.
-- Shows when a party starts, started, ends, ended and its duration.
+- Image URL support.
+- Time support with Discord timestamps.
+- Shows when the party starts, started, ends, ended and its duration.
 - Per-server timezone configuration.
 - Multi-server support.
 - Languages:
+  - Portuguese Brazil
   - English
-  - Portuguese (Brazil)
-- JSON persistence.
-- `DATA_DIR` support for persistent volumes on hosting platforms such as Railway.
+- JSON-based storage.
+- `DATA_DIR` support for persistent volumes on hosts like Railway.
 
 ## 🎮 How it works
 
-Staff creates a Hub with:
+Staff creates a Party Hub with:
 
 ```txt
 /party hub
 ```
 
-Members can then click **Create Party**.
+Members then use the **Create Party** button.
 
 The bot opens a form with:
 
@@ -51,9 +53,9 @@ The bot opens a form with:
 - Description
 - Image link
 
-After submitting, the invite is posted in the configured invite channel.
+After that, the invite is posted in the configured channel.
 
-Example party invite:
+Example invite:
 
 ```txt
 🎮 Lego Party - 4 Players
@@ -83,7 +85,7 @@ Only staff members or users with **Manage Server** permission can use it.
 
 Opens the server configuration panel.
 
-You can configure:
+It allows configuring:
 
 - Invite channel
 - Log channel
@@ -105,7 +107,7 @@ Removes closed parties from the local database for the current server.
 
 ## ⚙️ Initial setup
 
-After adding the bot to a server, run:
+After adding the bot to your server, use:
 
 ```txt
 /party config
@@ -120,7 +122,7 @@ Configure:
 5. Language
 6. Timezone
 
-Then go to the channel where you want the Hub and run:
+Then go to the channel where you want the Hub and use:
 
 ```txt
 /party hub
@@ -128,7 +130,7 @@ Then go to the channel where you want the Hub and run:
 
 ## 🔐 Recommended permissions
 
-The bot needs:
+The bot needs the following permissions:
 
 - View Channels
 - Send Messages
@@ -137,20 +139,20 @@ The bot needs:
 - Use Application Commands
 - Mention `@everyone`, optional
 
-For private channels, add the bot role to the channel permissions.
+For private channels, manually add the bot role to the channel permissions.
 
 ## 🌎 Languages
 
 The bot supports:
 
+- `pt-BR` — Português do Brasil
 - `en-US` — English
-- `pt-BR` — Portuguese (Brazil)
 
 The language can be changed per server in the configuration panel.
 
 ## 🕒 Supported time formats
 
-The time field accepts examples such as:
+The time field accepts examples like:
 
 ```txt
 today 18:30
@@ -176,6 +178,7 @@ config.example.json
 parties.example.json
 requirements.txt
 README.md
+README.pt-BR.md
 LICENSE
 ```
 
@@ -187,7 +190,7 @@ discord.py>=2.4.0
 
 ## 🔧 config.example.json
 
-Recommended example:
+Recommended model:
 
 ```json
 {
@@ -196,11 +199,13 @@ Recommended example:
 }
 ```
 
-Do not publish your real token. Use an environment variable instead.
+Copy it to `config.json` only for local development.
 
-## 🚀 Hosting on Railway
+Do not publish `config.json` with real server data or tokens.
 
-On Railway, configure this variable:
+## 🚀 Railway hosting
+
+On Railway, configure the following variable:
 
 ```txt
 DISCORD_TOKEN=YOUR_BOT_TOKEN
@@ -212,15 +217,15 @@ Optional, but recommended for persistence:
 DATA_DIR=/data
 ```
 
-If you use `DATA_DIR=/data`, create a Railway Volume mounted at:
+If using `DATA_DIR=/data`, create a Railway Volume mounted at:
 
 ```txt
 /data
 ```
 
-This allows the bot to keep server configuration and party data after redeploys.
+This allows the bot to save configuration and party data in persistent storage.
 
-## ▶️ Start command
+## ▶️ Start Command
 
 ```bash
 python bot.py
@@ -236,7 +241,23 @@ Use the environment variable:
 DISCORD_TOKEN
 ```
 
-If your token leaks, reset it immediately in the Discord Developer Portal.
+If your token is leaked, reset it immediately in the Discord Developer Portal.
+
+The public repository should not include:
+
+```txt
+config.json
+parties.json
+.env
+data/
+```
+
+Use the example files instead:
+
+```txt
+config.example.json
+parties.example.json
+```
 
 ## 📝 Logs
 
@@ -249,7 +270,7 @@ When configured, the log channel records actions such as:
 - User joined the queue
 - Party edited
 - Party closed
-- Configuration changed
+- Settings changed
 
 ## 👥 Multi-server support
 
@@ -271,19 +292,25 @@ Thanks to everyone supporting this project!
 
 ### Project Boosters
 
+
+
 <!-- Add $30 supporters here -->
 
 ### Community Supporters
+
+
 
 <!-- Add $15 supporters here -->
 
 ### Supporters
 
+
+
 <!-- Add $5 supporters here -->
 
 ## 📌 Project status
 
-In active development.
+Active development.
 
 ## 💡 Future ideas
 
@@ -294,7 +321,7 @@ In active development.
 - Web dashboard.
 - Party history.
 - Participation ranking.
-- Automatic reminders before the scheduled time.
+- Automatic notifications before the scheduled time.
 
 ## 📄 License
 
