@@ -6,33 +6,32 @@ SPD Party Bot is a Discord bot for organizing gaming parties, squads and quick e
 
 Authorized members can create party invites through an interactive form, define slots, time, description and image URL. Players can respond with interactive buttons such as **Going**, **Maybe** and **Not going**. When a party is full, the bot automatically places new participants in a queue.
 
-> [!TIP]
-> Setup commands like `/party config`, `/party hub` and `/party limpar` require the **Manage Server** permission or the configured Staff role. Regular users can still create parties from the Hub button if allowed by the server settings.
->
-> The configured Host role can also use `/party hub`, but only in the configured Command channel. The Hub is always created in the channel where `/party hub` is used.
-
 ## ✨ Features
 
 - Party Hub with interactive buttons.
 - Party creation through Discord modals/forms.
-- Quick responses: ✅ Going, ❔ Maybe, ❌ Not going.
+- Quick responses:
+  - ✅ Going
+  - ❔ Maybe
+  - ❌ Not going
 - Slot/capacity system.
 - Automatic queue when the party is full.
 - Private management panel for hosts and staff.
 - Edit and close parties.
-- Automatic party expiration.
-- Automatic reminders before the scheduled time.
 - Configurable invite channel per server.
 - Configurable log channel per server.
-- Configurable command channel for Host role usage.
-- Configurable Host and Staff roles.
+- Configurable Host role.
+- Configurable Staff role.
 - Option to allow everyone to create parties.
 - Optional `@everyone` mention when creating a party.
 - Image URL support.
 - Time support with Discord timestamps.
+- Shows when the party starts, started, ends, ended and its duration.
 - Per-server timezone configuration.
 - Multi-server support.
-- Languages: Portuguese Brazil and English.
+- Languages:
+  - Portuguese Brazil
+  - English
 - JSON-based storage.
 - `DATA_DIR` support for persistent volumes on hosts like Railway.
 
@@ -54,7 +53,7 @@ The bot opens a form with:
 - Description
 - Image link
 
-After that, the invite is posted in the configured invite channel.
+After that, the invite is posted in the configured channel.
 
 Example invite:
 
@@ -80,11 +79,7 @@ Host: @user
 
 Creates the Party Hub in the current channel.
 
-Staff members or users with **Manage Server** permission can use it in any text channel.
-
-Users with the configured **Host role** can use it only in the configured **Command channel**.
-
-The Hub is always posted in the same channel where the command is used.
+Only staff members or users with **Manage Server** permission can use it.
 
 ### `/party config`
 
@@ -94,7 +89,6 @@ It allows configuring:
 
 - Invite channel
 - Log channel
-- Command channel
 - Host role
 - Staff role
 - Language
@@ -102,8 +96,6 @@ It allows configuring:
 - Embed color
 - `@everyone` ping
 - Whether everyone can create parties
-- Automatic party expiration
-- Automatic reminders
 
 ### `/party lista`
 
@@ -125,11 +117,10 @@ Configure:
 
 1. Invite channel
 2. Log channel
-3. Command channel, optional but recommended if the Host role will use `/party hub`
-4. Host role
-5. Staff role
-6. Language
-7. Timezone
+3. Host role
+4. Staff role
+5. Language
+6. Timezone
 
 Then go to the channel where you want the Hub and use:
 
@@ -178,16 +169,6 @@ When the time is recognized, the bot displays automatic Discord timestamps, such
 - Ends in X hours
 - Ended X minutes ago
 - Party duration
-
-## ⏰ Automatic reminders and expiration
-
-When enabled in the configuration panel:
-
-- The bot can remind participants before a scheduled party starts.
-- The bot can automatically close parties after the scheduled end time.
-- If no end time is provided, the bot can close the party after a configured amount of active time.
-
-These settings are configured per server.
 
 ## 🗂️ Main files
 
@@ -289,14 +270,21 @@ When configured, the log channel records actions such as:
 - User joined the queue
 - Party edited
 - Party closed
-- Party automatically closed
 - Settings changed
 
 ## 👥 Multi-server support
 
 The bot stores separate settings for each server.
 
-Each server can have its own invite channel, log channel, command channel, Host role, Staff role, language, timezone, embed color, expiration settings and reminder settings.
+Each server can have its own:
+
+- Invite channel
+- Log channel
+- Host role
+- Staff role
+- Language
+- Timezone
+- Embed color
 
 ## 💜 Supporters
 
@@ -321,11 +309,13 @@ Active development.
 ## 💡 Future ideas
 
 - PostgreSQL database.
+- Automatic party expiration.
 - Temporary voice channel creation.
 - Game templates/presets.
 - Web dashboard.
 - Party history.
 - Participation ranking.
+- Automatic notifications before the scheduled time.
 
 ## 📄 License
 
