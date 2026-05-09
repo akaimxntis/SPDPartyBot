@@ -264,6 +264,7 @@ I18N = {
         "channel_invites": "Canal de convites",
         "channel_logs": "Canal de logs",
         "channel_commands": "Canal de comandos",
+        "voice_category": "Categoria das calls",
         "role_host": "Cargo Host",
         "role_staff": "Cargo Staff",
         "everyone_create": "Todos podem criar party",
@@ -295,6 +296,7 @@ I18N = {
         "config_select_channel_party": "Escolha o canal onde os convites das parties serão enviados:",
         "config_select_channel_logs": "Escolha o canal de logs:",
         "config_select_channel_commands": "Escolha o canal onde o cargo Host pode usar /party hub:",
+        "config_select_voice_category": "Escolha a categoria onde as calls temporárias serão criadas:",
         "config_select_host_role": "Escolha o cargo que pode criar parties:",
         "config_select_staff_role": "Escolha o cargo da staff:",
         "back": "Voltar",
@@ -459,6 +461,7 @@ I18N = {
         "channel_invites": "Invite channel",
         "channel_logs": "Log channel",
         "channel_commands": "Command channel",
+        "voice_category": "Voice category",
         "role_host": "Host role",
         "role_staff": "Staff role",
         "everyone_create": "Everyone can create parties",
@@ -490,6 +493,7 @@ I18N = {
         "config_select_channel_party": "Choose where party invites will be sent:",
         "config_select_channel_logs": "Choose the log channel:",
         "config_select_channel_commands": "Choose the channel where the Host role can use /party hub:",
+        "config_select_voice_category": "Choose the category where temporary calls will be created:",
         "config_select_host_role": "Choose the role that can create parties:",
         "config_select_staff_role": "Choose the staff role:",
         "back": "Back",
@@ -1738,6 +1742,30 @@ def role_preview(guild: discord.Guild, role_id: int, label: str) -> str:
     return f"**{label}:** {role.mention} — {tr(guild_id, 'ok')}"
 
 
+def category_preview(guild: discord.Guild, category_id: int, label: str) -> str:
+    guild_id = guild.id
+    if not category_id:
+        return f"**{label}:** `{tr(guild_id, 'not_defined')}` — {tr(guild_id, 'warn')}"
+
+    category = guild.get_channel(category_id)
+    if not isinstance(category, discord.CategoryChannel):
+        return f"**{label}:** `{category_id}` — {tr(guild_id, 'bad')}"
+
+    me = guild.me or (bot.user and guild.get_member(bot.user.id))
+    status = tr(guild_id, "ok")
+    if me:
+        perms = category.permissions_for(me)
+        missing = []
+        if not perms.view_channel:
+            missing.append("view_channel")
+        if not perms.manage_channels:
+            missing.append("manage_channels")
+        if missing:
+            status = f"{tr(guild_id, 'warn')} (`{', '.join(missing)}`)"
+
+    return f"**{label}:** `{category.name}` — {status}"
+
+
 async def make_config_embed(guild: discord.Guild) -> discord.Embed:
     guild_id = guild.id
     guild_conf = get_guild_config(guild_id)
@@ -1752,6 +1780,7 @@ async def make_config_embed(guild: discord.Guild) -> discord.Embed:
         await channel_preview(guild, int(guild_conf.get("party_channel_id", 0) or 0), tr(guild_id, "channel_invites"), ("view_channel", "send_messages", "embed_links", "read_message_history")),
         await channel_preview(guild, int(guild_conf.get("log_channel_id", 0) or 0), tr(guild_id, "channel_logs"), ("view_channel", "send_messages", "read_message_history")),
         await channel_preview(guild, int(guild_conf.get("command_channel_id", 0) or 0), tr(guild_id, "channel_commands"), ("view_channel", "send_messages", "read_message_history")),
+        category_preview(guild, int(guild_conf.get("voice_category_id", DEFAULT_VOICE_CATEGORY_ID) or 0), tr(guild_id, "voice_category")),
     ]
     embed.add_field(name=tr(guild_id, "section_channels"), value="\n".join(channels), inline=False)
 
@@ -1847,6 +1876,29 @@ class CommandChannelSelect(discord.ui.ChannelSelect):
         set_guild_config_value(interaction.guild_id, "command_channel_id", channel.id)
         await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=ConfigPanelView(interaction.guild.id))
         await log_action(interaction.guild, f"⚙️ <@{interaction.user.id}> definiu o canal de comandos como {channel.mention}.")
+
+
+class VoiceCategorySelect(discord.ui.ChannelSelect):
+    def __init__(self, guild_id: Optional[int]):
+        super().__init__(
+            placeholder=tr(guild_id, "config_select_voice_category"),
+            channel_types=[discord.ChannelType.category],
+            min_values=1,
+            max_values=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        if await reject_if_not_staff(interaction):
+            return
+
+        category = self.values[0]
+        if not isinstance(category, discord.CategoryChannel):
+            await interaction.response.send_message(tr(guild_id_from_interaction(interaction), "channel_not_found"), ephemeral=True)
+            return
+
+        set_guild_config_value(interaction.guild_id, "voice_category_id", category.id)
+        await interaction.response.edit_message(content=None, embed=await make_config_embed(interaction.guild), view=ConfigPanelView(interaction.guild.id))
+        await log_action(interaction.guild, f"⚙️ <@{interaction.user.id}> definiu a categoria das calls como **{category.name}**.")
 
 
 class HostRoleSelect(discord.ui.RoleSelect):
@@ -2179,6 +2231,7 @@ class ChannelsConfigView(discord.ui.View):
         self.set_party_channel.label = tr(guild_id, "channel_invites")
         self.set_log_channel.label = tr(guild_id, "channel_logs")
         self.set_command_channel.label = tr(guild_id, "channel_commands")
+        self.set_voice_category.label = tr(guild_id, "voice_category")
         self.set_party_channel_by_id.label = f"ID {tr(guild_id, 'channel_invites')}"
         self.set_log_channel_by_id.label = f"ID {tr(guild_id, 'channel_logs')}"
         self.set_command_channel_by_id.label = f"ID {tr(guild_id, 'channel_commands')}"
@@ -2223,6 +2276,13 @@ class ChannelsConfigView(discord.ui.View):
             return
         await interaction.response.send_modal(ManualChannelModal(self.guild_id, "command_channel_id", "Canal de comandos por ID"))
 
+
+
+    @discord.ui.button(label="Categoria das calls", emoji="🔊", style=discord.ButtonStyle.primary, row=1)
+    async def set_voice_category(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if await reject_if_not_staff(interaction):
+            return
+        await interaction.response.edit_message(content=None, embed=None, view=SelectOnlyView(self.guild_id, VoiceCategorySelect(self.guild_id)))
 
     @discord.ui.button(label="Testar convites", emoji="🧪", style=discord.ButtonStyle.success, row=2)
     async def test_party_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -2495,7 +2555,7 @@ def voice_resources_configured(data: Dict[str, Any]) -> bool:
 
 async def get_party_voice_category(guild: discord.Guild, data: Dict[str, Any]):
     guild_conf = get_guild_config(guild.id)
-    category_id = int(guild_conf.get("voice_category_id", DEFAULT_VOICE_CATEGORY_ID) or DEFAULT_VOICE_CATEGORY_ID)
+    category_id = int(guild_conf.get("voice_category_id", DEFAULT_VOICE_CATEGORY_ID) or 0)
     category = guild.get_channel(category_id)
     if isinstance(category, discord.CategoryChannel):
         return category
