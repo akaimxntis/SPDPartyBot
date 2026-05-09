@@ -2,38 +2,44 @@
 
 [English](README.md)
 
-SPD Party Bot é um bot para Discord criado para organizar parties, squads e eventos rápidos em servidores de comunidade.
+**SPD Party Bot** é um bot gratuito e open source para Discord, feito para organizar parties, squads e eventos rápidos em comunidades gamer.
 
-Com ele, membros autorizados podem criar convites de party por formulário, definir vagas, horário, descrição e imagem. Os jogadores respondem com botões interativos como **Vou**, **Talvez** e **Não vou**. Quando a party lota, o bot coloca novos participantes em uma fila automática.
+Ele oferece um Hub de Parties onde membros podem criar convites, entrar por botões, gerenciar vagas e fila, receber lembretes e, opcionalmente, usar calls privadas temporárias para cada party.
 
-## ✨ Recursos
+> [!TIP]
+> Comandos de staff/configuração exigem **Gerenciar servidor** ou o cargo Staff configurado.
 
-- Hub de parties com botões interativos.
-- Criação de party por formulário/modal.
-- Respostas rápidas:
-  - ✅ Vou
-  - ❔ Talvez
-  - ❌ Não vou
-- Sistema de vagas.
-- Fila automática quando a party está cheia.
-- Painel de gerenciamento privado para host/staff.
-- Edição e encerramento de parties.
-- Canal de convites configurável por servidor.
-- Canal de logs configurável por servidor.
-- Cargo Host configurável.
-- Cargo Staff configurável.
-- Opção para permitir que todos criem parties.
-- Opção para marcar `@everyone` ao criar party.
-- Suporte a imagem por link.
-- Suporte a horários com timestamps do Discord.
-- Mostra quanto falta para começar, quando começou, quando termina, quando terminou e a duração.
-- Configuração de fuso horário por servidor.
-- Suporte a múltiplos servidores.
-- Idiomas:
-  - Português do Brasil
-  - English
-- Salvamento em JSON.
-- Suporte a `DATA_DIR` para usar volume persistente em hospedagens como Railway.
+> [!IMPORTANT]
+> O SPD Party **não** precisa de permissão de Administrador.
+
+## ✨ Funções
+
+- Hub de Parties com botões interativos
+- Criação de party por formulário/modal
+- Título, vagas, horário, descrição e imagem por link
+- Respostas rápidas: **Vou**, **Talvez** e **Não vou**
+- Clicar na mesma resposta de novo remove você daquela lista
+- Sistema de fila quando a party está cheia
+- Promoção automática da fila quando alguém sai de **Vou**
+- Painel privado de gerenciamento para host e staff
+- Editar e encerrar parties
+- Lembretes automáticos antes do horário marcado
+- Encerramento automático depois que a party termina
+- Suporte a timestamps do Discord em horários reconhecidos
+- Configuração separada por servidor
+- Idioma por servidor: `pt-BR` e `en-US`
+- Fuso horário por servidor
+- Status dinâmico do bot
+- Temas de embed e cores personalizadas
+- Imagem padrão de party por servidor
+- Banners salvos por servidor
+- Ping opcional de `@everyone` ao criar party
+- Cargo Host opcional
+- Cargo Staff opcional
+- Restrição opcional de canal para `/party hub`
+- Calls privadas temporárias para parties
+- Cargo temporário para acesso à call
+- Limpeza automática da call e do cargo
 
 ## 🎮 Como funciona
 
@@ -43,35 +49,84 @@ A staff cria um Hub com:
 /party hub
 ```
 
-Depois os membros usam o botão **Criar Party**.
-
-O bot abre um formulário com:
+Os membros usam o botão **Criar Party**. O bot abre um formulário com:
 
 - Título da party
 - Número de vagas
 - Horário
 - Descrição
-- Link de imagem
+- Link da imagem
 
-Depois disso, o convite aparece no canal configurado.
+Depois de enviar, o convite aparece no canal configurado.
 
-Exemplo de convite:
+Os membros podem clicar em:
 
 ```txt
-🎮 Lego Party - 4 Jogadores
-
-Horário
-Hoje 18:30 - 20:30
-Começa em 2 horas
-Duração: 2h
-
-✅ Vou (1/4)
-❔ Talvez (0/4)
-❌ Não vou (0)
-
-Status: Aberta
-Organizador: @usuario
+✅ Vou
+❔ Talvez
+❌ Não vou
 ```
+
+Clicar no mesmo botão novamente remove o membro daquela lista. Se alguém confirmado sair de **Vou**, o próximo membro da fila é puxado automaticamente.
+
+## 🔊 Calls temporárias de party
+
+O SPD Party pode criar uma call privada temporária para cada party.
+
+Quando a party começa, ou quando host/staff usa **Gerenciar → Criar call**, o bot pode:
+
+- Criar um cargo temporário para a party
+- Criar uma call privada
+- Dar acesso somente ao host e aos membros marcados como **Vou**
+- Usar o formato de canal: `Jogando┇🎮 Nome da Party`
+- Criar o canal dentro da categoria configurada/padrão
+- Remover o acesso quando alguém sai de **Vou**
+- Dar acesso ao próximo membro puxado da fila
+- Apagar a call e o cargo quando a party termina
+- Esperar todo mundo sair da call antes de apagar
+
+Permissões necessárias para essa função opcional:
+
+- Gerenciar canais
+- Gerenciar cargos
+
+> [!IMPORTANT]
+> O cargo do bot precisa estar acima dos cargos temporários que ele cria, senão o Discord bloqueia adicionar/remover cargos.
+
+## 🎨 Personalização visual
+
+A staff pode personalizar o bot em `/party config`.
+
+Opções visuais disponíveis:
+
+- Cor do embed
+- Temas rápidos de embed
+- Idioma do servidor
+- Fuso horário do servidor
+- Imagem padrão de party
+- Banners salvos
+- Escolher banner salvo
+- Limpar banners salvos
+
+Temas rápidos atuais:
+
+- SPD Neon
+- Lime Green
+- Ocean Blue
+- Crimson Red
+- Golden
+- Cyber Pink
+- Dark Steel
+- Ice Cyan
+
+## 🌎 Idiomas
+
+O SPD Party atualmente suporta:
+
+- `pt-BR` — Português do Brasil
+- `en-US` — English
+
+O idioma pode ser alterado por servidor em `/party config`.
 
 ## 🧩 Comandos
 
@@ -79,7 +134,7 @@ Organizador: @usuario
 
 Cria o Hub de Parties no canal atual.
 
-Apenas staff ou usuários com permissão **Gerenciar servidor** podem usar.
+Pode ser usado por staff, usuários com **Gerenciar servidor**, ou pelo cargo Host configurado no canal permitido.
 
 ### `/party config`
 
@@ -89,13 +144,19 @@ Permite configurar:
 
 - Canal de convites
 - Canal de logs
+- Canal de comandos
 - Cargo Host
 - Cargo Staff
 - Idioma
 - Fuso horário
 - Cor do embed
+- Tema do embed
+- Imagem padrão de party
+- Banners salvos
 - Ping `@everyone`
 - Se todos podem criar parties
+- Lembretes automáticos
+- Encerramento automático
 
 ### `/party lista`
 
@@ -103,7 +164,10 @@ Lista as parties abertas no servidor atual.
 
 ### `/party limpar`
 
-Remove do banco as parties encerradas do servidor atual.
+Remove parties encerradas do banco local do servidor atual.
+
+> [!TIP]
+> `/party config`, `/party hub` e `/party limpar` são comandos de staff/setup.
 
 ## ⚙️ Configuração inicial
 
@@ -117,10 +181,12 @@ Configure:
 
 1. Canal de convites
 2. Canal de logs
-3. Cargo Host
-4. Cargo Staff
-5. Idioma
-6. Fuso horário
+3. Canal de comandos, opcional
+4. Cargo Host, opcional
+5. Cargo Staff, opcional
+6. Idioma
+7. Fuso horário
+8. Visual, opcional
 
 Depois vá até o canal onde deseja deixar o Hub e use:
 
@@ -130,29 +196,25 @@ Depois vá até o canal onde deseja deixar o Hub e use:
 
 ## 🔐 Permissões recomendadas
 
-O bot precisa das permissões:
+O SPD Party não precisa de Administrador.
+
+Permissões recomendadas:
 
 - Ver canais
 - Enviar mensagens
-- Ler histórico de mensagens
+- Ver histórico de mensagens
 - Inserir links
 - Usar comandos de aplicativo
-- Mencionar `@everyone`, opcional
+- Mencionar todos, opcional e configurável
+- Gerenciar canais, necessário apenas para calls temporárias
+- Gerenciar cargos, necessário apenas para cargos temporários das calls
 
-Para canais privados, adicione o cargo do bot nas permissões do canal.
+> [!NOTE]
+> `Mencionar todos` só é usado se estiver ativado na configuração do servidor.
 
-## 🌎 Idiomas
+## 🕒 Formatos de horário aceitos
 
-O bot possui suporte para:
-
-- `pt-BR` — Português do Brasil
-- `en-US` — English
-
-O idioma pode ser alterado por servidor no painel de configuração.
-
-## 🕒 Horários suportados
-
-O campo de horário aceita exemplos como:
+Exemplos:
 
 ```txt
 hoje 18:30
@@ -162,50 +224,17 @@ amanhã 19:00
 08/05/2026 18:30 - 09/05/2026 01:00
 ```
 
-Quando o horário é reconhecido, o bot mostra timestamps automáticos do Discord, como:
+Quando o horário é reconhecido, o bot mostra timestamps do Discord como:
 
 - Começa em X horas
 - Começou há X minutos
 - Termina em X horas
 - Terminou há X minutos
-- Duração da party
-
-## 🗂️ Arquivos principais
-
-```txt
-bot.py
-config.example.json
-parties.example.json
-requirements.txt
-README.md
-README.pt-BR.md
-LICENSE
-```
-
-## 📦 requirements.txt
-
-```txt
-discord.py>=2.4.0
-```
-
-## 🔧 config.example.json
-
-Modelo recomendado:
-
-```json
-{
-  "token": "",
-  "guilds": {}
-}
-```
-
-Copie para `config.json` apenas em ambiente local.
-
-Não publique `config.json` com dados reais de servidores ou tokens.
+- Duração
 
 ## 🚀 Hospedagem no Railway
 
-No Railway, configure a variável:
+Configure a variável obrigatória:
 
 ```txt
 DISCORD_TOKEN=SEU_TOKEN_DO_BOT
@@ -223,72 +252,82 @@ Se usar `DATA_DIR=/data`, crie um Volume no Railway montado em:
 /data
 ```
 
-Assim o bot salva configurações e parties em um local persistente.
+Assim as configurações dos servidores e dados das parties continuam salvos entre deploys.
 
-## ▶️ Start Command
+## 💻 Rodando localmente
+
+Instale as dependências:
 
 ```bash
+pip install -r requirements.txt
+```
+
+Rode com variáveis de ambiente.
+
+### Windows CMD
+
+```bat
+set DISCORD_TOKEN=SEU_TOKEN_DO_BOT
+set DATA_DIR=%cd%\data
 python bot.py
 ```
 
-## 🔒 Segurança
+### PowerShell
 
-Nunca publique o token do bot no GitHub.
-
-Use variável de ambiente:
-
-```txt
-DISCORD_TOKEN
+```powershell
+$env:DISCORD_TOKEN="SEU_TOKEN_DO_BOT"
+$env:DATA_DIR="$PWD\data"
+python bot.py
 ```
 
-Se o token vazar, gere outro imediatamente no Discord Developer Portal.
-
-O repositório público não deve incluir:
+O bot salva dados locais em:
 
 ```txt
+data/config.json
+data/parties.json
+```
+
+Não envie arquivos locais de dados para o GitHub.
+
+## 📁 `.gitignore` sugerido
+
+```gitignore
 config.json
 parties.json
 .env
 data/
+__pycache__/
+*.pyc
 ```
 
-Use os arquivos de exemplo no lugar:
+## 🧪 Notas para reviewers
+
+O SPD Party é gratuito e open source.
+
+O bot não exige permissão de Administrador. As funções principais ficam disponíveis sem pagamento. Comandos de setup/staff exigem **Gerenciar servidor** ou o cargo Staff configurado.
+
+Funções opcionais de call temporária exigem **Gerenciar canais** e **Gerenciar cargos**. Se essas permissões não forem concedidas, as funções principais de party continuam funcionando.
+
+Ponto de entrada recomendado:
 
 ```txt
-config.example.json
-parties.example.json
+/party hub
 ```
 
-## 📝 Logs
+## 💜 Apoie o projeto
 
-Quando configurado, o canal de logs registra ações como:
+O SPD Party é gratuito e open source.
 
-- Party criada
-- Usuário marcou Vou
-- Usuário marcou Talvez
-- Usuário marcou Não vou
-- Usuário entrou na fila
-- Party editada
-- Party encerrada
-- Configurações alteradas
+O apoio é totalmente opcional e ajuda a manter o bot online, atualizado e recebendo melhorias.
 
-## 👥 Multi-servidor
+Apoiadores podem receber benefícios de comunidade, como:
 
-O bot salva configurações separadas para cada servidor.
+- Nome listado no README
+- Prioridade na análise de sugestões
+- Prévia antecipada de funções planejadas, quando disponível
+- Cargo/badge de apoiador no servidor de suporte, se disponível
 
-Cada servidor pode ter:
-
-- Canal de convites próprio
-- Canal de logs próprio
-- Cargo Host próprio
-- Cargo Staff próprio
-- Idioma próprio
-- Fuso horário próprio
-- Cor de embed própria
-
-## 💜 Apoiadores
-
-Obrigado a todos que apoiam este projeto!
+As funções principais do bot não ficam bloqueadas por pagamento.
 
 ### Project Boosters
 
@@ -302,20 +341,16 @@ Obrigado a todos que apoiam este projeto!
 
 <!-- Adicione apoiadores de $5 aqui -->
 
-## 📌 Status do projeto
+## 🛣️ Ideias futuras
 
-Em desenvolvimento ativo.
-
-## 💡 Ideias futuras
-
-- Banco de dados PostgreSQL.
-- Expiração automática de parties.
-- Criação automática de canal de voz temporário.
-- Templates/presets de jogos.
-- Dashboard web.
-- Histórico de parties.
-- Ranking de participação.
-- Notificações automáticas antes do horário marcado.
+- Banco PostgreSQL
+- Dashboard web
+- Templates e presets de jogos
+- Parties recorrentes
+- Histórico de parties
+- Ranking de participação
+- Mais presets visuais
+- Automação avançada de parties
 
 ## 📄 Licença
 
