@@ -6,33 +6,32 @@ SPD Party Bot é um bot para Discord criado para organizar parties, squads e eve
 
 Com ele, membros autorizados podem criar convites de party por formulário, definir vagas, horário, descrição e imagem. Os jogadores respondem com botões interativos como **Vou**, **Talvez** e **Não vou**. Quando a party lota, o bot coloca novos participantes em uma fila automática.
 
-> [!TIP]
-> Comandos de configuração como `/party config`, `/party hub` e `/party limpar` exigem a permissão **Gerenciar servidor** ou o cargo Staff configurado. Usuários normais ainda podem criar parties pelo botão do Hub se isso estiver permitido nas configurações do servidor.
->
-> O cargo Host configurado também pode usar `/party hub`, mas somente no Canal de comandos configurado. O Hub sempre é criado no canal onde `/party hub` foi usado.
-
 ## ✨ Recursos
 
 - Hub de parties com botões interativos.
 - Criação de party por formulário/modal.
-- Respostas rápidas: ✅ Vou, ❔ Talvez, ❌ Não vou.
+- Respostas rápidas:
+  - ✅ Vou
+  - ❔ Talvez
+  - ❌ Não vou
 - Sistema de vagas.
 - Fila automática quando a party está cheia.
 - Painel de gerenciamento privado para host/staff.
 - Edição e encerramento de parties.
-- Encerramento automático de parties.
-- Lembretes automáticos antes do horário marcado.
 - Canal de convites configurável por servidor.
 - Canal de logs configurável por servidor.
-- Canal de comandos configurável para uso do cargo Host.
-- Cargo Host e Cargo Staff configuráveis.
+- Cargo Host configurável.
+- Cargo Staff configurável.
 - Opção para permitir que todos criem parties.
 - Opção para marcar `@everyone` ao criar party.
 - Suporte a imagem por link.
 - Suporte a horários com timestamps do Discord.
+- Mostra quanto falta para começar, quando começou, quando termina, quando terminou e a duração.
 - Configuração de fuso horário por servidor.
 - Suporte a múltiplos servidores.
-- Idiomas: Português do Brasil e English.
+- Idiomas:
+  - Português do Brasil
+  - English
 - Salvamento em JSON.
 - Suporte a `DATA_DIR` para usar volume persistente em hospedagens como Railway.
 
@@ -54,7 +53,7 @@ O bot abre um formulário com:
 - Descrição
 - Link de imagem
 
-Depois disso, o convite aparece no canal de convites configurado.
+Depois disso, o convite aparece no canal configurado.
 
 Exemplo de convite:
 
@@ -80,11 +79,7 @@ Organizador: @usuario
 
 Cria o Hub de Parties no canal atual.
 
-Staff ou usuários com permissão **Gerenciar servidor** podem usar em qualquer canal de texto.
-
-Usuários com o **cargo Host** configurado podem usar somente no **Canal de comandos** configurado.
-
-O Hub sempre é enviado no mesmo canal onde o comando foi usado.
+Apenas staff ou usuários com permissão **Gerenciar servidor** podem usar.
 
 ### `/party config`
 
@@ -94,7 +89,6 @@ Permite configurar:
 
 - Canal de convites
 - Canal de logs
-- Canal de comandos
 - Cargo Host
 - Cargo Staff
 - Idioma
@@ -102,8 +96,6 @@ Permite configurar:
 - Cor do embed
 - Ping `@everyone`
 - Se todos podem criar parties
-- Encerramento automático de parties
-- Lembretes automáticos
 
 ### `/party lista`
 
@@ -125,11 +117,10 @@ Configure:
 
 1. Canal de convites
 2. Canal de logs
-3. Canal de comandos, opcional mas recomendado se o cargo Host for usar `/party hub`
-4. Cargo Host
-5. Cargo Staff
-6. Idioma
-7. Fuso horário
+3. Cargo Host
+4. Cargo Staff
+5. Idioma
+6. Fuso horário
 
 Depois vá até o canal onde deseja deixar o Hub e use:
 
@@ -178,16 +169,6 @@ Quando o horário é reconhecido, o bot mostra timestamps automáticos do Discor
 - Termina em X horas
 - Terminou há X minutos
 - Duração da party
-
-## ⏰ Lembretes e encerramento automático
-
-Quando ativado no painel de configuração:
-
-- O bot pode avisar os participantes antes da party começar.
-- O bot pode encerrar parties automaticamente depois do horário final.
-- Se não houver horário final, o bot pode encerrar a party após um tempo ativo configurado.
-
-Essas configurações são separadas por servidor.
 
 ## 🗂️ Arquivos principais
 
@@ -289,14 +270,21 @@ Quando configurado, o canal de logs registra ações como:
 - Usuário entrou na fila
 - Party editada
 - Party encerrada
-- Party encerrada automaticamente
 - Configurações alteradas
 
 ## 👥 Multi-servidor
 
 O bot salva configurações separadas para cada servidor.
 
-Cada servidor pode ter canal de convites, canal de logs, canal de comandos, Cargo Host, Cargo Staff, idioma, fuso horário, cor de embed, encerramento automático e lembretes próprios.
+Cada servidor pode ter:
+
+- Canal de convites próprio
+- Canal de logs próprio
+- Cargo Host próprio
+- Cargo Staff próprio
+- Idioma próprio
+- Fuso horário próprio
+- Cor de embed própria
 
 ## 💜 Apoiadores
 
@@ -321,11 +309,13 @@ Em desenvolvimento ativo.
 ## 💡 Ideias futuras
 
 - Banco de dados PostgreSQL.
+- Expiração automática de parties.
 - Criação automática de canal de voz temporário.
 - Templates/presets de jogos.
 - Dashboard web.
 - Histórico de parties.
 - Ranking de participação.
+- Notificações automáticas antes do horário marcado.
 
 ## 📄 Licença
 
