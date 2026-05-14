@@ -12,6 +12,10 @@ Ele oferece um Hub de Parties onde membros podem criar convites, entrar por bot�
 > [!IMPORTANT]
 > O SPD Party **não** precisa de permissão de Administrador.
 
+![Discord Bots](https://top.gg/api/widget/1502116547009970347.svg)
+
+[TOP.GG](https://top.gg//bot/1502116547009970347)
+
 ## ✨ Funções
 
 - Hub de Parties com botões interativos
