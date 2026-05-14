@@ -12,6 +12,8 @@ It provides a Party Hub where members can create party invites, join with button
 > [!IMPORTANT]
 > SPD Party does **not** require Administrator permission.
 
+[![Discord Bots](https://top.gg/api/widget/1502116547009970347.svg)(https://top.gg//bot/1502116547009970347)
+
 ## ✨ Features
 
 - Party Hub with interactive buttons
